@@ -341,36 +341,46 @@ export function getIngredientStatuses(ingredient: Ingredient): Array<{
     variant: 'destructive' | 'warning'
   }> = []
   
-  const today = new Date()
+  // Cria data de hoje no fuso horário local (meia-noite)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   today.setHours(0, 0, 0, 0)
 
   // Verifica se está vencido
   if (ingredient.expiry_date) {
     // Cria data no fuso horário local para evitar problema de um dia a menos
     const parts = ingredient.expiry_date.split('-')
-    const expiryDate = parts.length === 3
-      ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-      : new Date(ingredient.expiry_date)
+    if (parts.length !== 3) {
+      // Se formato inválido, pula verificação
+      return statuses
+    }
+    
+    const expiryDate = new Date(
+      parseInt(parts[0]), 
+      parseInt(parts[1]) - 1, 
+      parseInt(parts[2])
+    )
     expiryDate.setHours(0, 0, 0, 0)
 
-    if (expiryDate < today) {
+    // Compara apenas as datas (sem hora)
+    // Só marca como vencido se a data de vencimento é ANTERIOR a hoje
+    // Ou seja, se hoje é 5 de fev e vence em 6 de fev, NÃO está vencido
+    const daysDiff = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysDiff < 0) {
+      // Vencido: data de vencimento já passou
       statuses.push({
         type: 'expired',
         label: 'Vencido',
         variant: 'destructive',
       })
-    } else {
-      // Verifica se está vencendo em até 3 dias
-      const threeDaysFromNow = new Date(today)
-      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
-
-      if (expiryDate <= threeDaysFromNow) {
-        statuses.push({
-          type: 'expiring_soon',
-          label: 'Vencendo em breve',
-          variant: 'warning',
-        })
-      }
+    } else if (daysDiff >= 0 && daysDiff <= 3) {
+      // Vencendo em breve: vence hoje ou nos próximos 3 dias
+      statuses.push({
+        type: 'expiring_soon',
+        label: 'Vencendo em breve',
+        variant: 'warning',
+      })
     }
   }
 

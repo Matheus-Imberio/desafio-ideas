@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Bell, LogOut, User } from 'lucide-react'
+import { Plus, Search, Filter, Bell, LogOut, User, ChefHat } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
@@ -37,6 +37,7 @@ import { IngredientForm } from '@/components/IngredientForm'
 import { IngredientList } from '@/components/IngredientList'
 import { AdjustStockDialog } from '@/components/AdjustStockDialog'
 import { StockMovementsDialog } from '@/components/StockMovementsDialog'
+import { RecipeSuggestionsDialog } from '@/components/RecipeSuggestionsDialog'
 import {
   getOrCreateRestaurant,
   type Restaurant,
@@ -82,6 +83,7 @@ export default function Stock() {
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [alertsOpen, setAlertsOpen] = React.useState(false)
   const [historyOpen, setHistoryOpen] = React.useState(false)
+  const [recipesOpen, setRecipesOpen] = React.useState(false)
   const [alerts, setAlerts] = React.useState<Alert[]>([])
   const [alertsLoading, setAlertsLoading] = React.useState(false)
   const [selectedIngredient, setSelectedIngredient] =
@@ -493,13 +495,23 @@ export default function Stock() {
 
           {/* Ações e Info */}
           <div className="flex items-center justify-between">
-            <Button onClick={() => {
-              setSelectedIngredient(null)
-              setFormOpen(true)
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Ingrediente
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => {
+                setSelectedIngredient(null)
+                setFormOpen(true)
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Ingrediente
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setRecipesOpen(true)}
+                disabled={ingredients.length === 0}
+              >
+                <ChefHat className="mr-2 h-4 w-4" />
+                Receitas
+              </Button>
+            </div>
 
             {totalCount > 0 && (
               <p className="text-sm text-muted-foreground">
@@ -650,6 +662,12 @@ export default function Stock() {
             open={historyOpen}
             onOpenChange={setHistoryOpen}
             ingredient={selectedIngredient}
+          />
+
+          <RecipeSuggestionsDialog
+            open={recipesOpen}
+            onOpenChange={setRecipesOpen}
+            ingredients={ingredients}
           />
         </div>
       </div>
