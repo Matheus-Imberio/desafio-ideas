@@ -27,7 +27,19 @@ export async function getOrCreateRestaurant(
   }
 
   // Se não existe, cria um novo
-  const name = restaurantName?.trim() || 'Meu Restaurante'
+  // Tenta pegar o nome da metadata do usuário se não foi fornecido
+  let name = restaurantName?.trim()
+  
+  if (!name) {
+    // Busca o usuário para pegar a metadata
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData?.user?.user_metadata?.restaurant_name) {
+      name = userData.user.user_metadata.restaurant_name
+    }
+  }
+  
+  name = name || 'Meu Restaurante'
+  
   const { data: newRestaurant, error: createError } = await supabase
     .from('restaurants')
     .insert({

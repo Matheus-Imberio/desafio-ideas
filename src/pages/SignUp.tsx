@@ -44,9 +44,17 @@ export default function SignUp() {
     }
 
     setLoading(true)
+    const restaurantNameToUse = restaurantName.trim() || 'Meu Restaurante'
+    
+    // Salva o nome do restaurante na metadata do usuário
     const { data, error } = await supabase.auth.signUp({ 
       email, 
-      password
+      password,
+      options: {
+        data: {
+          restaurant_name: restaurantNameToUse
+        }
+      }
     })
 
     if (error) {
@@ -73,7 +81,6 @@ export default function SignUp() {
     // Se criou com sucesso e tem sessão, cria restaurante com o nome fornecido
     if (data.user && data.session) {
       try {
-        const restaurantNameToUse = restaurantName.trim() || 'Meu Restaurante'
         await getOrCreateRestaurant(data.user.id, restaurantNameToUse)
         toast({
           title: 'Conta criada',
