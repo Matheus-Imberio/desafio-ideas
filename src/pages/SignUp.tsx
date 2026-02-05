@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { supabase } from '@/lib/supabase'
+import { getOrCreateRestaurant } from '@/lib/restaurant'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ export default function SignUp() {
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [confirmPassword, setConfirmPassword] = React.useState('')
+  const [restaurantName, setRestaurantName] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
   const passwordStrength = React.useMemo(() => {
@@ -46,9 +48,9 @@ export default function SignUp() {
       email, 
       password
     })
-    setLoading(false)
 
     if (error) {
+      setLoading(false)
       toast({
         title: 'Não foi possível criar a conta',
         description: error.message,
@@ -59,6 +61,7 @@ export default function SignUp() {
 
     // Se o email precisa ser confirmado, mostra mensagem diferente
     if (data.user && !data.session) {
+      setLoading(false)
       toast({
         title: 'Conta criada',
         description: 'Verifique seu e-mail para confirmar o cadastro antes de entrar.',
@@ -67,12 +70,27 @@ export default function SignUp() {
       return
     }
 
-    toast({
-      title: 'Conta criada',
-      description: 'Bem-vindo! Redirecionando...',
-    })
-
-    navigate('/', { replace: true })
+    // Se criou com sucesso e tem sessão, cria restaurante com o nome fornecido
+    if (data.user && data.session) {
+      try {
+        const restaurantNameToUse = restaurantName.trim() || 'Meu Restaurante'
+        await getOrCreateRestaurant(data.user.id, restaurantNameToUse)
+        toast({
+          title: 'Conta criada',
+          description: 'Bem-vindo! Redirecionando...',
+        })
+        navigate('/', { replace: true })
+      } catch (restaurantError) {
+        console.error('Erro ao criar restaurante:', restaurantError)
+        toast({
+          title: 'Conta criada',
+          description: 'Bem-vindo! Redirecionando...',
+        })
+        navigate('/', { replace: true })
+      }
+    }
+    
+    setLoading(false)
   }
 
   return (
@@ -96,6 +114,20 @@ export default function SignUp() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="restaurantName">Nome do Restaurante</Label>
+              <Input
+                id="restaurantName"
+                type="text"
+                value={restaurantName}
+                onChange={(e) => setRestaurantName(e.target.value)}
+                placeholder="Ex: Restaurante do João"
+              />
+              <p className="text-xs text-muted-foreground">
+                Opcional. Se não informar, será usado "Meu Restaurante".
+              </p>
             </div>
 
             <div className="grid gap-2">

@@ -279,6 +279,23 @@ export async function getUnreadAlerts(restaurantId: string): Promise<Alert[]> {
 }
 
 /**
+ * Busca todos os alertas de um restaurante (lidos e não lidos)
+ */
+export async function getAllAlerts(restaurantId: string): Promise<Alert[]> {
+  const { data, error } = await supabase
+    .from('alerts')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(`Erro ao buscar alertas: ${error.message}`)
+  }
+
+  return data || []
+}
+
+/**
  * Marca alerta como lido
  */
 export async function markAlertAsRead(alertId: string): Promise<void> {
@@ -294,53 +311,77 @@ export async function markAlertAsRead(alertId: string): Promise<void> {
 
 /**
  * Calcula o status de um ingrediente baseado em quantidade e validade
+ * Retorna apenas o status mais crítico (para compatibilidade)
  */
 export function getIngredientStatus(ingredient: Ingredient): {
   type: 'low_stock' | 'expiring_soon' | 'expired' | 'ok'
   label: string
   variant: 'destructive' | 'warning' | 'success' | 'default'
 } {
+  const statuses = getIngredientStatuses(ingredient)
+  // Retorna o mais crítico (vencido > vencendo > estoque baixo > ok)
+  return statuses[0] || {
+    type: 'ok',
+    label: 'OK',
+    variant: 'success',
+  }
+}
+
+/**
+ * Retorna todos os status ativos de um ingrediente
+ */
+export function getIngredientStatuses(ingredient: Ingredient): Array<{
+  type: 'low_stock' | 'expiring_soon' | 'expired'
+  label: string
+  variant: 'destructive' | 'warning'
+}> {
+  const statuses: Array<{
+    type: 'low_stock' | 'expiring_soon' | 'expired'
+    label: string
+    variant: 'destructive' | 'warning'
+  }> = []
+  
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   // Verifica se está vencido
   if (ingredient.expiry_date) {
-    const expiryDate = new Date(ingredient.expiry_date)
+    // Cria data no fuso horário local para evitar problema de um dia a menos
+    const parts = ingredient.expiry_date.split('-')
+    const expiryDate = parts.length === 3
+      ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+      : new Date(ingredient.expiry_date)
     expiryDate.setHours(0, 0, 0, 0)
 
     if (expiryDate < today) {
-      return {
+      statuses.push({
         type: 'expired',
         label: 'Vencido',
         variant: 'destructive',
-      }
-    }
+      })
+    } else {
+      // Verifica se está vencendo em até 3 dias
+      const threeDaysFromNow = new Date(today)
+      threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
 
-    // Verifica se está vencendo em até 3 dias
-    const threeDaysFromNow = new Date(today)
-    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
-
-    if (expiryDate <= threeDaysFromNow) {
-      return {
-        type: 'expiring_soon',
-        label: 'Vencendo em breve',
-        variant: 'warning',
+      if (expiryDate <= threeDaysFromNow) {
+        statuses.push({
+          type: 'expiring_soon',
+          label: 'Vencendo em breve',
+          variant: 'warning',
+        })
       }
     }
   }
 
-  // Verifica estoque baixo
+  // Verifica estoque baixo (pode coexistir com alertas de vencimento)
   if (ingredient.quantity <= ingredient.min_stock) {
-    return {
+    statuses.push({
       type: 'low_stock',
       label: 'Estoque baixo',
       variant: 'warning',
-    }
+    })
   }
 
-  return {
-    type: 'ok',
-    label: 'OK',
-    variant: 'success',
-  }
+  return statuses
 }

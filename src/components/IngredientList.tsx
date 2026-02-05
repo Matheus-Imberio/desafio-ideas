@@ -1,6 +1,5 @@
 import * as React from 'react'
-import { format } from 'date-fns'
-import { MoreVertical, Edit, Trash2, Package } from 'lucide-react'
+import { MoreVertical, Edit, Trash2, Package, History } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,13 +17,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { Ingredient } from '@/lib/types'
-import { getIngredientStatus } from '@/lib/ingredients'
+import { getIngredientStatus, getIngredientStatuses } from '@/lib/ingredients'
+import { translateUnit, formatDatePT } from '@/lib/utils'
 
 interface IngredientListProps {
   ingredients: Ingredient[]
   onEdit: (ingredient: Ingredient) => void
   onDelete: (ingredient: Ingredient) => void
   onAdjustStock: (ingredient: Ingredient) => void
+  onViewHistory: (ingredient: Ingredient) => void
   loading?: boolean
 }
 
@@ -33,6 +34,7 @@ export function IngredientList({
   onEdit,
   onDelete,
   onAdjustStock,
+  onViewHistory,
   loading = false,
 }: IngredientListProps) {
   if (loading) {
@@ -71,6 +73,7 @@ export function IngredientList({
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {ingredients.map((ingredient) => {
         const status = getIngredientStatus(ingredient)
+        const allStatuses = getIngredientStatuses(ingredient)
         const isExpired = status.type === 'expired'
 
         return (
@@ -95,6 +98,10 @@ export function IngredientList({
                     <DropdownMenuItem onClick={() => onAdjustStock(ingredient)}>
                       Ajustar Estoque
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onViewHistory(ingredient)}>
+                      <History className="mr-2 h-4 w-4" />
+                      Ver Histórico
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onEdit(ingredient)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Editar
@@ -114,7 +121,7 @@ export function IngredientList({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Quantidade</span>
                 <span className="text-lg font-semibold">
-                  {ingredient.quantity.toFixed(2)} {ingredient.unit}
+                  {ingredient.quantity.toFixed(2)} {translateUnit(ingredient.unit)}
                 </span>
               </div>
 
@@ -122,7 +129,7 @@ export function IngredientList({
                 <span className="text-sm text-muted-foreground">
                   Estoque Mínimo
                 </span>
-                <span className="text-sm">{ingredient.min_stock} {ingredient.unit}</span>
+                <span className="text-sm">{ingredient.min_stock} {translateUnit(ingredient.unit)}</span>
               </div>
 
               {ingredient.expiry_date && (
@@ -133,15 +140,25 @@ export function IngredientList({
                       isExpired ? 'text-destructive font-semibold' : ''
                     }`}
                   >
-                    {format(new Date(ingredient.expiry_date), "dd 'de' MMM")}
+                    {formatDatePT(ingredient.expiry_date)}
                   </span>
                 </div>
               )}
 
               <div className="pt-2 border-t">
-                <Badge variant={status.variant} className="w-full justify-center">
-                  {status.label}
-                </Badge>
+                {allStatuses.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 justify-center">
+                    {allStatuses.map((s, index) => (
+                      <Badge key={index} variant={s.variant}>
+                        {s.label}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <Badge variant={status.variant} className="w-full justify-center">
+                    {status.label}
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>

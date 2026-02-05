@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Ingredient, StockMovementType } from '@/lib/types'
+import { translateUnit } from '@/lib/utils'
 
 const adjustStockSchema = z.object({
   type: z.enum(['purchase', 'sale', 'adjustment', 'waste', 'expired']),
@@ -145,7 +146,7 @@ export function AdjustStockDialog({
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              Estoque atual: {ingredient.quantity.toFixed(2)} {ingredient.unit}
+              Estoque atual: {ingredient.quantity.toFixed(2)} {translateUnit(ingredient.unit)}
             </p>
           </div>
 

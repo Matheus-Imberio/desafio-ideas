@@ -10,6 +10,7 @@ import Login from '@/pages/Login'
 import ResetPassword from '@/pages/ResetPassword'
 import SignUp from '@/pages/SignUp'
 import Stock from '@/pages/Stock'
+import Profile from '@/pages/Profile'
 
 function App() {
   return (
@@ -27,6 +28,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Stock />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               }
             />

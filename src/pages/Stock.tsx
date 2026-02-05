@@ -1,11 +1,12 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Bell, LogOut } from 'lucide-react'
+import { Plus, Search, Filter, Bell, LogOut, User } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -24,10 +25,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { IngredientForm } from '@/components/IngredientForm'
 import { IngredientList } from '@/components/IngredientList'
 import { AdjustStockDialog } from '@/components/AdjustStockDialog'
+import { StockMovementsDialog } from '@/components/StockMovementsDialog'
 import {
   getOrCreateRestaurant,
   type Restaurant,
@@ -40,9 +49,11 @@ import {
   createStockMovement,
   getCategories,
   getUnreadAlerts,
+  getAllAlerts,
+  markAlertAsRead,
   type IngredientFilters,
 } from '@/lib/ingredients'
-import type { Ingredient, IngredientFormData, StockMovementType } from '@/lib/types'
+import type { Ingredient, IngredientFormData, StockMovementType, Alert } from '@/lib/types'
 
 export default function Stock() {
   const navigate = useNavigate()
@@ -69,6 +80,10 @@ export default function Stock() {
   const [formOpen, setFormOpen] = React.useState(false)
   const [adjustOpen, setAdjustOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [alertsOpen, setAlertsOpen] = React.useState(false)
+  const [historyOpen, setHistoryOpen] = React.useState(false)
+  const [alerts, setAlerts] = React.useState<Alert[]>([])
+  const [alertsLoading, setAlertsLoading] = React.useState(false)
   const [selectedIngredient, setSelectedIngredient] =
     React.useState<Ingredient | null>(null)
   const [formLoading, setFormLoading] = React.useState(false)
@@ -107,33 +122,34 @@ export default function Stock() {
     loadData()
   }, [user, toast])
 
-  // Carrega ingredientes quando filtros ou página mudam
-  React.useEffect(() => {
+  // Função para carregar ingredientes (reutilizável)
+  const loadIngredients = React.useCallback(async () => {
     if (!restaurant) return
 
-    async function loadIngredients() {
-      try {
-        setLoading(true)
-        const result = await getIngredients(restaurant.id, page, filters)
-        setIngredients(result.data)
-        setTotalPages(result.totalPages)
-        setTotalCount(result.count)
-      } catch (error) {
-        toast({
-          title: 'Erro',
-          description:
-            error instanceof Error
-              ? error.message
-              : 'Erro ao carregar ingredientes',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoading(false)
-      }
+    try {
+      setLoading(true)
+      const result = await getIngredients(restaurant.id, page, filters)
+      setIngredients(result.data)
+      setTotalPages(result.totalPages)
+      setTotalCount(result.count)
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Erro ao carregar ingredientes',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
     }
-
-    loadIngredients()
   }, [restaurant, page, filters, toast])
+
+  // Carrega ingredientes quando filtros ou página mudam
+  React.useEffect(() => {
+    loadIngredients()
+  }, [loadIngredients])
 
   // Atualiza alertas periodicamente
   React.useEffect(() => {
@@ -162,10 +178,12 @@ export default function Stock() {
         description: 'Ingrediente criado com sucesso',
       })
       setFormOpen(false)
+      setSelectedIngredient(null)
 
-      // Recarrega categorias
+      // Recarrega categorias e ingredientes
       const categoriesData = await getCategories(restaurant.id)
       setCategories(categoriesData)
+      await loadIngredients()
     } catch (error) {
       toast({
         title: 'Erro',
@@ -193,10 +211,11 @@ export default function Stock() {
       setFormOpen(false)
       setSelectedIngredient(null)
 
-      // Recarrega categorias
+      // Recarrega categorias e ingredientes
       if (restaurant) {
         const categoriesData = await getCategories(restaurant.id)
         setCategories(categoriesData)
+        await loadIngredients()
       }
     } catch (error) {
       toast({
@@ -224,6 +243,13 @@ export default function Stock() {
       })
       setDeleteOpen(false)
       setSelectedIngredient(null)
+      
+      // Recarrega ingredientes e alertas
+      await loadIngredients()
+      if (restaurant) {
+        const alerts = await getUnreadAlerts(restaurant.id)
+        setAlertsCount(alerts.length)
+      }
     } catch (error) {
       toast({
         title: 'Erro',
@@ -254,6 +280,13 @@ export default function Stock() {
       })
       setAdjustOpen(false)
       setSelectedIngredient(null)
+      
+      // Recarrega ingredientes e alertas
+      await loadIngredients()
+      if (restaurant) {
+        const alerts = await getUnreadAlerts(restaurant.id)
+        setAlertsCount(alerts.length)
+      }
     } catch (error) {
       toast({
         title: 'Erro',
@@ -279,6 +312,75 @@ export default function Stock() {
     navigate('/login', { replace: true })
   }
 
+  const handleOpenAlerts = async () => {
+    if (!restaurant) return
+    setAlertsOpen(true)
+    setAlertsLoading(true)
+    try {
+      const allAlerts = await getAllAlerts(restaurant.id)
+      setAlerts(allAlerts)
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description:
+          error instanceof Error ? error.message : 'Erro ao carregar alertas',
+        variant: 'destructive',
+      })
+    } finally {
+      setAlertsLoading(false)
+    }
+  }
+
+  const getIngredientName = (ingredientId: string) => {
+    const ingredient = ingredients.find((ing) => ing.id === ingredientId)
+    return ingredient?.name || `Ingrediente #${ingredientId.slice(0, 8)}`
+  }
+
+  const handleMarkAlertAsRead = async (alertId: string) => {
+    try {
+      await markAlertAsRead(alertId)
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? { ...a, is_read: true } : a))
+      )
+      setAlertsCount((prev) => Math.max(0, prev - 1))
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Erro ao marcar alerta como lido',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const getAlertLabel = (type: string) => {
+    switch (type) {
+      case 'low_stock':
+        return 'Estoque Baixo'
+      case 'expiring_soon':
+        return 'Vencendo em Breve'
+      case 'expired':
+        return 'Vencido'
+      default:
+        return 'Alerta'
+    }
+  }
+
+  const getAlertVariant = (type: string): 'destructive' | 'default' | 'warning' => {
+    switch (type) {
+      case 'low_stock':
+        return 'warning'
+      case 'expiring_soon':
+        return 'warning'
+      case 'expired':
+        return 'destructive'
+      default:
+        return 'default'
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -292,16 +394,26 @@ export default function Stock() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {alertsCount > 0 && (
-                <Button variant="outline" size="icon" className="relative">
-                  <Bell className="h-4 w-4" />
-                  {alertsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
-                      {alertsCount > 9 ? '9+' : alertsCount}
-                    </span>
-                  )}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative"
+                onClick={handleOpenAlerts}
+              >
+                <Bell className="h-4 w-4" />
+                {alertsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
+                    {alertsCount > 9 ? '9+' : alertsCount}
+                  </span>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/profile')}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Perfil
+              </Button>
               <Button variant="outline" onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
@@ -412,6 +524,10 @@ export default function Stock() {
               setSelectedIngredient(ingredient)
               setAdjustOpen(true)
             }}
+            onViewHistory={(ingredient) => {
+              setSelectedIngredient(ingredient)
+              setHistoryOpen(true)
+            }}
             loading={loading}
           />
 
@@ -476,6 +592,65 @@ export default function Stock() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          <Dialog open={alertsOpen} onOpenChange={setAlertsOpen}>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Alertas e Notificações</DialogTitle>
+                <DialogDescription>
+                  Acompanhe os alertas do seu estoque
+                </DialogDescription>
+              </DialogHeader>
+              {alertsLoading ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Carregando alertas...
+                </div>
+              ) : alerts.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  Nenhum alerta no momento
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {alerts.map((alert) => (
+                    <Card
+                      key={alert.id}
+                      className={`cursor-pointer transition-colors ${
+                        alert.is_read ? 'opacity-60' : ''
+                      }`}
+                      onClick={() => !alert.is_read && handleMarkAlertAsRead(alert.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant={getAlertVariant(alert.type)}>
+                                {getAlertLabel(alert.type)}
+                              </Badge>
+                              {!alert.is_read && (
+                                <span className="h-2 w-2 rounded-full bg-primary"></span>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {getIngredientName(alert.ingredient_id)}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(alert.created_at).toLocaleString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <StockMovementsDialog
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            ingredient={selectedIngredient}
+          />
         </div>
       </div>
     </div>
