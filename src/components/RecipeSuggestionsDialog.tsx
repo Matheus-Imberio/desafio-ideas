@@ -14,9 +14,9 @@ import { Button } from '@/components/ui/button'
 import type { Ingredient } from '@/lib/types'
 import { 
   getRecipeSuggestions, 
-  getRecipesForExpiringIngredients, 
   getExpiredIngredients,
-  type Recipe 
+  type Recipe,
+  type RecipeTag
 } from '@/lib/recipes'
 
 interface RecipeSuggestionsDialogProps {
@@ -31,10 +31,7 @@ export function RecipeSuggestionsDialog({
   ingredients,
 }: RecipeSuggestionsDialogProps) {
   const [recipes, setRecipes] = React.useState<Recipe[]>([])
-  const [expiringRecipes, setExpiringRecipes] = React.useState<Recipe[]>([])
   const [expiredIngredients, setExpiredIngredients] = React.useState<Ingredient[]>([])
-  const [showExpiringOnly, setShowExpiringOnly] = React.useState(true)
-
   const [loadingAI, setLoadingAI] = React.useState(false)
 
   React.useEffect(() => {
@@ -46,14 +43,12 @@ export function RecipeSuggestionsDialog({
   const loadRecipes = async () => {
     try {
       setLoadingAI(true)
-      const [allRecipes, expiring, expired] = await Promise.all([
-        getRecipeSuggestions(ingredients, 10),
-        getRecipesForExpiringIngredients(ingredients, 5),
+      const [allRecipes, expired] = await Promise.all([
+        getRecipeSuggestions(ingredients, 20),
         Promise.resolve(getExpiredIngredients(ingredients))
       ])
       
       setRecipes(allRecipes)
-      setExpiringRecipes(expiring)
       setExpiredIngredients(expired)
     } catch (error) {
       console.error('Erro ao carregar receitas:', error)
@@ -62,29 +57,44 @@ export function RecipeSuggestionsDialog({
     }
   }
 
-  const displayRecipes = showExpiringOnly && expiringRecipes.length > 0
-    ? expiringRecipes
-    : recipes
+  // Agrupa receitas por tags
+  const groupedRecipes = React.useMemo(() => {
+    const groups: Record<RecipeTag, Recipe[]> = {
+      expiring_soon: [],
+      high_stock: [],
+      ok: []
+    }
+    
+    recipes.forEach(recipe => {
+      recipe.tags.forEach(tag => {
+        if (!groups[tag].find(r => r.id === recipe.id)) {
+          groups[tag].push(recipe)
+        }
+      })
+    })
+    
+    return groups
+  }, [recipes])
 
-  const getPriorityVariant = (priority: Recipe['priority']) => {
-    switch (priority) {
-      case 'high':
-        return 'destructive' as const
-      case 'medium':
-        return 'warning' as const
-      default:
-        return 'default' as const
+  const getTagLabel = (tag: RecipeTag): string => {
+    switch (tag) {
+      case 'expiring_soon':
+        return 'Produtos quase vencendo'
+      case 'high_stock':
+        return 'Produtos com alto estoque'
+      case 'ok':
+        return 'Produtos ok'
     }
   }
 
-  const getPriorityLabel = (priority: Recipe['priority']) => {
-    switch (priority) {
-      case 'high':
-        return 'Alta Prioridade'
-      case 'medium':
-        return 'Média Prioridade'
-      default:
-        return 'Baixa Prioridade'
+  const getTagVariant = (tag: RecipeTag): 'destructive' | 'warning' | 'default' => {
+    switch (tag) {
+      case 'expiring_soon':
+        return 'destructive'
+      case 'high_stock':
+        return 'warning'
+      case 'ok':
+        return 'default'
     }
   }
 
@@ -137,108 +147,192 @@ export function RecipeSuggestionsDialog({
               </Card>
             )}
 
-            {displayRecipes.length === 0 ? (
+            {recipes.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 Nenhuma receita encontrada com os ingredientes disponíveis
               </div>
             ) : (
-              <>
-                {expiringRecipes.length > 0 && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-warning" />
-                      <span className="text-sm font-medium">
-                        {expiringRecipes.length} receita{expiringRecipes.length !== 1 ? 's' : ''} para ingredientes vencendo
-                      </span>
+              <div className="space-y-6">
+                {/* Receitas de produtos quase vencendo */}
+                {groupedRecipes.expiring_soon.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      <h3 className="font-semibold text-sm">
+                        Receitas de produtos quase vencendo ({groupedRecipes.expiring_soon.length})
+                      </h3>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowExpiringOnly(!showExpiringOnly)}
-                    >
-                      {showExpiringOnly ? 'Ver todas' : 'Ver apenas vencendo'}
-                    </Button>
+                    <div className="space-y-4">
+                      {groupedRecipes.expiring_soon.map((recipe) => (
+                        <RecipeCard key={recipe.id} recipe={recipe} getTagLabel={getTagLabel} getTagVariant={getTagVariant} />
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  {displayRecipes.map((recipe) => (
-                    <Card key={recipe.id} className="overflow-hidden">
-                      <CardHeader>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">{recipe.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {recipe.description}
-                            </p>
-                          </div>
-                          <Badge variant={getPriorityVariant(recipe.priority)}>
-                            {getPriorityLabel(recipe.priority)}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {/* Informações da receita */}
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {recipe.cookingTime} min
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            {recipe.servings} {recipe.servings === 1 ? 'porção' : 'porções'}
-                          </div>
-                        </div>
+                {/* Receitas de produtos com alto estoque */}
+                {groupedRecipes.high_stock.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertCircle className="h-4 w-4 text-warning" />
+                      <h3 className="font-semibold text-sm">
+                        Receitas de produtos com alto estoque ({groupedRecipes.high_stock.length})
+                      </h3>
+                    </div>
+                    <div className="space-y-4">
+                      {groupedRecipes.high_stock.map((recipe) => (
+                        <RecipeCard key={recipe.id} recipe={recipe} getTagLabel={getTagLabel} getTagVariant={getTagVariant} />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                        {/* Ingredientes */}
-                        <div>
-                          <h4 className="text-sm font-semibold mb-2">Ingredientes:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {recipe.ingredients.map((ing, index) => {
-                              const isAvailable = recipe.matchedIngredients.includes(ing)
-                              return (
-                                <Badge
-                                  key={index}
-                                  variant={isAvailable ? 'default' : 'outline'}
-                                  className="text-xs"
-                                >
-                                  {isAvailable && (
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  )}
-                                  {ing}
-                                </Badge>
-                              )
-                            })}
-                          </div>
-                          {recipe.missingIngredients.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-2">
-                              Faltam: {recipe.missingIngredients.join(', ')}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Modo de preparo */}
-                        <details className="group">
-                          <summary className="cursor-pointer text-sm font-semibold text-primary hover:underline">
-                            Ver modo de preparo
-                          </summary>
-                          <ol className="mt-3 space-y-2 text-sm text-muted-foreground list-decimal list-inside">
-                            {recipe.instructions.map((step, index) => (
-                              <li key={index} className="pl-2">
-                                {step}
-                              </li>
-                            ))}
-                          </ol>
-                        </details>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </>
+                {/* Receitas de produtos ok */}
+                {groupedRecipes.ok.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <h3 className="font-semibold text-sm">
+                        Receitas de produtos ok ({groupedRecipes.ok.length})
+                      </h3>
+                    </div>
+                    <div className="space-y-4">
+                      {groupedRecipes.ok.map((recipe) => (
+                        <RecipeCard key={recipe.id} recipe={recipe} getTagLabel={getTagLabel} getTagVariant={getTagVariant} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// Componente separado para o card de receita
+function RecipeCard({ 
+  recipe, 
+  getTagLabel, 
+  getTagVariant
+}: { 
+  recipe: Recipe
+  getTagLabel: (tag: RecipeTag) => string
+  getTagVariant: (tag: RecipeTag) => 'destructive' | 'warning' | 'default'
+}) {
+  const getPriorityVariantLocal = (priority: Recipe['priority']) => {
+    switch (priority) {
+      case 'high':
+        return 'destructive' as const
+      case 'medium':
+        return 'warning' as const
+      default:
+        return 'default' as const
+    }
+  }
+
+  const getPriorityLabelLocal = (priority: Recipe['priority']) => {
+    switch (priority) {
+      case 'high':
+        return 'Alta Prioridade'
+      case 'medium':
+        return 'Média Prioridade'
+      default:
+        return 'Baixa Prioridade'
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <CardTitle className="text-lg">{recipe.name}</CardTitle>
+              {recipe.isAI && (
+                <Badge variant="outline" className="text-xs">
+                  IA
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {recipe.description}
+            </p>
+            {recipe.reason && (
+              <p className="text-xs text-primary mt-1 italic">
+                💡 {recipe.reason}
+              </p>
+            )}
+            {/* Tags da receita */}
+            <div className="flex flex-wrap gap-1 mt-2">
+              {recipe.tags.map((tag) => (
+                <Badge key={tag} variant={getTagVariant(tag)} className="text-xs">
+                  {getTagLabel(tag)}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <Badge variant={getPriorityVariantLocal(recipe.priority)}>
+            {getPriorityLabelLocal(recipe.priority)}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Informações da receita */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            {recipe.cookingTime} min
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-4 w-4" />
+            {recipe.servings} {recipe.servings === 1 ? 'porção' : 'porções'}
+          </div>
+        </div>
+
+        {/* Ingredientes */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Ingredientes:</h4>
+          <div className="flex flex-wrap gap-2">
+            {recipe.ingredients.map((ing, index) => {
+              const isAvailable = recipe.matchedIngredients.includes(ing)
+              return (
+                <Badge
+                  key={index}
+                  variant={isAvailable ? 'default' : 'outline'}
+                  className="text-xs"
+                >
+                  {isAvailable && (
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                  )}
+                  {ing}
+                </Badge>
+              )
+            })}
+          </div>
+          {recipe.missingIngredients.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Faltam: {recipe.missingIngredients.join(', ')}
+            </p>
+          )}
+        </div>
+
+        {/* Modo de preparo */}
+        <details className="group">
+          <summary className="cursor-pointer text-sm font-semibold text-primary hover:underline">
+            Ver modo de preparo
+          </summary>
+          <ol className="mt-3 space-y-2 text-sm text-muted-foreground list-decimal list-inside">
+            {recipe.instructions.map((step, index) => (
+              <li key={index} className="pl-2">
+                {step}
+              </li>
+            ))}
+          </ol>
+        </details>
+      </CardContent>
+    </Card>
   )
 }

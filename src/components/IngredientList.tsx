@@ -77,7 +77,7 @@ export function IngredientList({
         const isExpired = status.type === 'expired'
 
         return (
-          <Card key={ingredient.id} className={isExpired ? 'border-destructive' : ''}>
+          <Card key={ingredient.id} className={`card-restaurant ${isExpired ? 'border-destructive border-2' : ''}`}>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">

@@ -384,39 +384,53 @@ export default function Stock() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">Controle de Estoque</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {restaurant?.name} • {user?.email}
-              </p>
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                <ChefHat className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                  Controle de Estoque
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                  <span className="font-medium text-orange-700">{restaurant?.name}</span>
+                  <span>•</span>
+                  <span>{user?.email}</span>
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="icon"
-                className="relative"
+                className="relative rounded-xl hover:bg-orange-50"
                 onClick={handleOpenAlerts}
               >
-                <Bell className="h-4 w-4" />
+                <Bell className="h-5 w-5" />
                 {alertsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-[10px] text-white flex items-center justify-center font-bold shadow-md">
                     {alertsCount > 9 ? '9+' : alertsCount}
                   </span>
                 )}
               </Button>
               <Button
                 variant="outline"
+                className="rounded-xl hover:bg-orange-50"
                 onClick={() => navigate('/profile')}
               >
                 <User className="mr-2 h-4 w-4" />
                 Perfil
               </Button>
-              <Button variant="outline" onClick={handleLogout}>
+              <Button 
+                variant="outline" 
+                className="rounded-xl hover:bg-red-50 hover:border-red-200"
+                onClick={handleLogout}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
               </Button>
@@ -424,9 +438,12 @@ export default function Stock() {
           </div>
 
           {/* Filtros e Busca */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Filtros</CardTitle>
+          <Card className="mb-6">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-orange-600" />
+                Filtros
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-4">
@@ -494,12 +511,15 @@ export default function Stock() {
           </Card>
 
           {/* Ações e Info */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <Button onClick={() => {
-                setSelectedIngredient(null)
-                setFormOpen(true)
-              }}>
+              <Button 
+                onClick={() => {
+                  setSelectedIngredient(null)
+                  setFormOpen(true)
+                }}
+                className="shadow-lg"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Ingrediente
               </Button>

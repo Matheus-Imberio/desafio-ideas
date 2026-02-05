@@ -1,6 +1,8 @@
 import type { Ingredient } from './types'
 import { getAIRecipeSuggestions } from './ai'
 
+export type RecipeTag = 'expiring_soon' | 'high_stock' | 'ok'
+
 export interface Recipe {
   id: string
   name: string
@@ -14,12 +16,13 @@ export interface Recipe {
   missingIngredients: string[] // Ingredientes que faltam
   reason?: string // Razão da sugestão (quando vem da IA)
   isAI?: boolean // Indica se veio da IA
+  tags: RecipeTag[] // Tags indicando por que a receita foi sugerida
 }
 
 /**
  * Base de dados de receitas comuns
  */
-const RECIPES_DATABASE: Omit<Recipe, 'priority' | 'matchedIngredients' | 'missingIngredients'>[] = [
+const RECIPES_DATABASE: Omit<Recipe, 'priority' | 'matchedIngredients' | 'missingIngredients' | 'tags'>[] = [
   {
     id: '1',
     name: 'Molho de Tomate',
@@ -253,6 +256,44 @@ function calculatePriority(
 }
 
 /**
+ * Identifica as tags de uma receita baseado nos ingredientes correspondentes
+ */
+function getRecipeTags(
+  matchedIngredients: Ingredient[],
+  expiringIngredients: Ingredient[],
+  highStockIngredients: Ingredient[]
+): RecipeTag[] {
+  const tags: RecipeTag[] = []
+  
+  // Verifica se usa ingredientes quase vencendo
+  const hasExpiring = matchedIngredients.some(ing => 
+    expiringIngredients.some(expIng => expIng.id === ing.id)
+  )
+  
+  // Verifica se usa ingredientes com alto estoque
+  const hasHighStock = matchedIngredients.some(ing => 
+    highStockIngredients.some(highIng => highIng.id === ing.id)
+  )
+  
+  // Se não tem nenhum dos dois, é receita "ok" (ingredientes normais)
+  const isOk = !hasExpiring && !hasHighStock
+  
+  if (hasExpiring) {
+    tags.push('expiring_soon')
+  }
+  
+  if (hasHighStock) {
+    tags.push('high_stock')
+  }
+  
+  if (isOk) {
+    tags.push('ok')
+  }
+  
+  return tags
+}
+
+/**
  * Busca receitas baseadas nos ingredientes disponíveis
  * NÃO inclui receitas que usam ingredientes vencidos
  * Tenta usar IA se disponível, senão usa receitas estáticas
@@ -265,6 +306,25 @@ export async function getRecipeSuggestions(
   
   // Filtra ingredientes vencidos (não devem ser usados)
   const validIngredients = ingredients.filter(ing => !isIngredientExpired(ing))
+  
+  // Identifica ingredientes por categoria para tags
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  today.setHours(0, 0, 0, 0)
+  
+  const expiringIngredients = ingredients.filter(ing => {
+    if (!ing.expiry_date || isIngredientExpired(ing)) return false
+    const parts = ing.expiry_date.split('-')
+    if (parts.length !== 3) return false
+    const expiryDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+    expiryDate.setHours(0, 0, 0, 0)
+    const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return daysUntilExpiry >= 0 && daysUntilExpiry <= 3
+  })
+  
+  const highStockIngredients = ingredients.filter(ing => 
+    !isIngredientExpired(ing) && ing.quantity > ing.min_stock * 2
+  )
   
   for (const recipe of RECIPES_DATABASE) {
     const matchedIngredients: Ingredient[] = []
@@ -298,12 +358,14 @@ export async function getRecipeSuggestions(
     const matchRatio = matchedIngredients.length / recipe.ingredients.length
     if (matchRatio >= 0.5) {
       const priority = calculatePriority(matchedIngredients)
+      const tags = getRecipeTags(matchedIngredients, expiringIngredients, highStockIngredients)
       
       suggestions.push({
         ...recipe,
         priority,
         matchedIngredients: matchedNames,
         missingIngredients,
+        tags,
         // Guarda os ingredientes correspondentes para ordenação
         _matchedIngredientObjects: matchedIngredients
       } as Recipe & { _matchedIngredientObjects?: Ingredient[] })
@@ -348,22 +410,6 @@ export async function getRecipeSuggestions(
   
   // Tenta buscar receitas da IA
   try {
-    const expiringIngredients = ingredients.filter(ing => {
-      if (!ing.expiry_date || isIngredientExpired(ing)) return false
-      const parts = ing.expiry_date.split('-')
-      const expiryDate = parts.length === 3
-        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-        : new Date(ing.expiry_date)
-      expiryDate.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      return daysUntilExpiry >= 0 && daysUntilExpiry <= 3
-    })
-    
-    const highStockIngredients = ingredients.filter(ing => 
-      !isIngredientExpired(ing) && ing.quantity > ing.min_stock * 2
-    )
     
     const aiRecipes = await getAIRecipeSuggestions(ingredients, expiringIngredients, highStockIngredients)
     
@@ -374,6 +420,8 @@ export async function getRecipeSuggestions(
         const matchedNames: string[] = []
         const missingIngredients: string[] = []
         
+        const matchedIngredientObjects: Ingredient[] = []
+        
         for (const recipeIng of aiRecipe.ingredients) {
           const normalized = normalizeIngredientName(recipeIng)
           const found = ingredients.find(ing => {
@@ -383,10 +431,13 @@ export async function getRecipeSuggestions(
           
           if (found && !isIngredientExpired(found)) {
             matchedNames.push(recipeIng)
+            matchedIngredientObjects.push(found)
           } else {
             missingIngredients.push(recipeIng)
           }
         }
+        
+        const tags = getRecipeTags(matchedIngredientObjects, expiringIngredients, highStockIngredients)
         
         return {
           id: `ai-${index}`,
@@ -400,7 +451,8 @@ export async function getRecipeSuggestions(
           matchedIngredients: matchedNames,
           missingIngredients,
           reason: aiRecipe.reason,
-          isAI: true
+          isAI: true,
+          tags
         }
       })
       

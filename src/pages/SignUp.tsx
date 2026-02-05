@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ChefHat, Mail, Lock, Building2, ArrowRight, CheckCircle2 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { getOrCreateRestaurant } from '@/lib/restaurant'
@@ -100,94 +101,190 @@ export default function SignUp() {
     setLoading(false)
   }
 
+  const passwordRequirements = [
+    { met: password.length >= 8, text: 'Mínimo 8 caracteres' },
+    { met: /[A-Z]/.test(password), text: 'Uma letra maiúscula' },
+    { met: /[a-z]/.test(password), text: 'Uma letra minúscula' },
+    { met: /[0-9]/.test(password), text: 'Um número' },
+  ]
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Criar conta</CardTitle>
-          <CardDescription>
-            Crie seu acesso para começar a cadastrar ingredientes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+    <div className="min-h-screen flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-6xl grid md:grid-cols-2 gap-8 items-center">
+        {/* Lado esquerdo - Branding */}
+        <div className="hidden md:flex flex-col items-start justify-center space-y-6 text-white">
+          <div className="flex items-center gap-4">
+            <div className="p-4 rounded-2xl bg-white/20 backdrop-blur-sm shadow-xl">
+              <ChefHat className="h-12 w-12 text-white" />
             </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="restaurantName">Nome do Restaurante</Label>
-              <Input
-                id="restaurantName"
-                type="text"
-                value={restaurantName}
-                onChange={(e) => setRestaurantName(e.target.value)}
-                placeholder="Ex: Restaurante do João"
-              />
-              <p className="text-xs text-muted-foreground">
-                Opcional. Se não informar, será usado "Meu Restaurante".
-              </p>
+            <div>
+              <h1 className="text-4xl font-bold">Comece agora!</h1>
+              <p className="text-orange-100 text-lg mt-2">Crie sua conta e gerencie seu restaurante</p>
             </div>
+          </div>
+          <div className="space-y-3 text-orange-50">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-white" />
+              <span>Cadastro rápido e simples</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-white" />
+              <span>Gestão completa de estoque</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-white" />
+              <span>Receitas inteligentes com IA</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-white" />
+              <span>Alertas automáticos</span>
+            </div>
+          </div>
+        </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="password">Senha</Label>
-              <PasswordInput
-                id="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Requisitos: mínimo 8 caracteres, e idealmente conter letras e números.
-              </p>
-              <div className="h-2 w-full rounded bg-muted">
-                <div
-                  className="h-2 rounded bg-primary transition-all"
-                  style={{ width: `${(passwordStrength / 4) * 100}%` }}
-                  aria-label="Força da senha"
-                />
+        {/* Lado direito - Formulário */}
+        <Card className="w-full max-w-md mx-auto shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+          <CardHeader className="space-y-3 pb-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                <ChefHat className="h-8 w-8 text-white" />
               </div>
             </div>
+            <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+              Criar conta
+            </CardTitle>
+            <CardDescription className="text-center text-base">
+              Preencha os dados abaixo para começar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="grid gap-5">
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-sm font-semibold flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-orange-600" />
+                  E-mail
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-12"
+                  placeholder="seu@email.com"
+                  required
+                />
+              </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="confirmPassword">Confirmar senha</Label>
-              <PasswordInput
-                id="confirmPassword"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
+              <div className="grid gap-2">
+                <Label htmlFor="restaurantName" className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-orange-600" />
+                  Nome do Restaurante
+                </Label>
+                <Input
+                  id="restaurantName"
+                  type="text"
+                  value={restaurantName}
+                  onChange={(e) => setRestaurantName(e.target.value)}
+                  className="h-12"
+                  placeholder="Ex: Restaurante do João"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Opcional. Se não informar, será usado "Meu Restaurante".
+                </p>
+              </div>
 
-            <Button
-              type="submit"
-              disabled={loading || !email || !password || !confirmPassword}
-            >
-              {loading ? 'Criando...' : 'Criar conta'}
-            </Button>
+              <div className="grid gap-2">
+                <Label htmlFor="password" className="text-sm font-semibold flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-orange-600" />
+                  Senha
+                </Label>
+                <PasswordInput
+                  id="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12"
+                  required
+                />
+                {password && (
+                  <div className="space-y-2 mt-2">
+                    <div className="h-2 w-full rounded-full bg-orange-100 overflow-hidden">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          passwordStrength <= 1 ? 'bg-red-500' :
+                          passwordStrength === 2 ? 'bg-yellow-500' :
+                          passwordStrength === 3 ? 'bg-orange-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${(passwordStrength / 4) * 100}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {passwordRequirements.map((req, i) => (
+                        <div key={i} className={`flex items-center gap-1.5 ${req.met ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          <CheckCircle2 className={`h-3 w-3 ${req.met ? 'text-green-600' : 'text-gray-300'}`} />
+                          <span>{req.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-            <p className="text-sm text-muted-foreground">
-              Já tem conta?{' '}
-              <Link
-                to="/login"
-                className="text-primary underline-offset-4 hover:underline"
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPassword" className="text-sm font-semibold flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-orange-600" />
+                  Confirmar senha
+                </Label>
+                <PasswordInput
+                  id="confirmPassword"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="h-12"
+                  required
+                />
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs text-red-600 mt-1">As senhas não coincidem</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || !email || !password || !confirmPassword || password !== confirmPassword}
+                className="h-12 text-base font-semibold mt-2"
+                size="lg"
               >
-                Entrar
-              </Link>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
+                {loading ? 'Criando conta...' : (
+                  <>
+                    Criar conta
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
+              </Button>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-orange-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-center text-muted-foreground">
+                Já tem conta?{' '}
+                <Link
+                  to="/login"
+                  className="text-orange-600 hover:text-orange-700 font-semibold underline-offset-4 hover:underline"
+                >
+                  Entrar agora
+                </Link>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
