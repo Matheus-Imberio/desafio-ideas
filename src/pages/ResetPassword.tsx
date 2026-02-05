@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/PasswordInput'
 import { useToast } from '@/components/ui/use-toast'
 
 export default function ResetPassword() {
@@ -56,9 +57,8 @@ export default function ResetPassword() {
           <form onSubmit={onSubmit} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="password">Nova senha</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -68,9 +68,8 @@ export default function ResetPassword() {
 
             <div className="grid gap-2">
               <Label htmlFor="confirmPassword">Confirmar senha</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
