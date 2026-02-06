@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ChefHat, Clock, Users, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { ChefHat, Clock, Users, AlertCircle, CheckCircle2, Save } from 'lucide-react'
 
 import {
   Dialog,
@@ -11,13 +11,21 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/use-toast'
+import { useAuth } from './AuthProvider'
+import { getOrCreateRestaurant } from '@/lib/restaurant'
+import { createRecipe } from '@/lib/recipes'
+import { SaveRecipeDialog } from './SaveRecipeDialog'
 import type { Ingredient } from '@/lib/types'
 import { 
   getRecipeSuggestions, 
   getExpiredIngredients,
-  type Recipe,
+  type RecipeSuggestion,
   type RecipeTag
 } from '@/lib/recipes'
+
+// Alias para compatibilidade
+type Recipe = RecipeSuggestion
 
 interface RecipeSuggestionsDialogProps {
   open: boolean
@@ -222,6 +230,74 @@ function RecipeCard({
   getTagLabel: (tag: RecipeTag) => string
   getTagVariant: (tag: RecipeTag) => 'destructive' | 'warning' | 'default'
 }) {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [saving, setSaving] = React.useState(false)
+  const [saveDialogOpen, setSaveDialogOpen] = React.useState(false)
+  const [recipeToSave, setRecipeToSave] = React.useState<Recipe | null>(null)
+
+  const handleOpenSaveDialog = () => {
+    setRecipeToSave(recipe)
+    setSaveDialogOpen(true)
+  }
+
+  const handleSaveRecipe = async (data: { price?: number; servings?: number }) => {
+    if (!user) {
+      toast({
+        title: 'Erro',
+        description: 'Você precisa estar logado para salvar receitas',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setSaving(true)
+      const restaurant = await getOrCreateRestaurant(user.id)
+      
+      // Formata descrição com instruções
+      const fullDescription = [
+        recipe.description,
+        '',
+        'Modo de Preparo:',
+        ...recipe.instructions.map((step, idx) => `${idx + 1}. ${step}`),
+      ].join('\n')
+      
+      // Converte RecipeSuggestion para formato de criação
+      const savedRecipe = await createRecipe(restaurant.id, {
+        name: recipe.name,
+        description: fullDescription,
+        servings: data.servings || recipe.servings,
+        preparation_time: recipe.cookingTime,
+        cost_per_serving: data.price ? data.price / (data.servings || recipe.servings) : null,
+        ingredients: recipe.ingredients.map(ingName => ({
+          ingredient_name: ingName,
+          quantity: 1, // Quantidade padrão, pode ser ajustada depois
+          unit: 'units' as const,
+        })),
+      })
+
+      console.log('Receita salva com sucesso:', savedRecipe)
+
+      toast({
+        title: 'Sucesso',
+        description: 'Receita salva com sucesso! Você pode encontrá-la na página de Receitas.',
+        duration: 5000,
+      })
+
+      // Não recarrega as sugestões - isso causa um flash desnecessário
+      // As sugestões da IA não mudam quando salvamos uma receita
+    } catch (error) {
+      console.error('Erro ao salvar receita:', error)
+      toast({
+        title: 'Erro',
+        description: error instanceof Error ? error.message : 'Erro ao salvar receita',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
   const getPriorityVariantLocal = (priority: Recipe['priority']) => {
     switch (priority) {
       case 'high':
@@ -332,7 +408,38 @@ function RecipeCard({
             ))}
           </ol>
         </details>
+
+        {/* Botão de salvar */}
+        {user && (
+          <div className="pt-2 border-t">
+            <Button
+              onClick={handleOpenSaveDialog}
+              disabled={saving}
+              className="w-full"
+              size="sm"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Salvar Receita
+            </Button>
+          </div>
+        )}
       </CardContent>
+      
+      {/* Diálogo para salvar receita */}
+      {recipeToSave && (
+        <SaveRecipeDialog
+          open={saveDialogOpen}
+          onOpenChange={(open) => {
+            setSaveDialogOpen(open)
+            if (!open) {
+              setRecipeToSave(null)
+            }
+          }}
+          onSave={handleSaveRecipe}
+          recipeName={recipeToSave.name}
+          loading={saving}
+        />
+      )}
     </Card>
   )
 }

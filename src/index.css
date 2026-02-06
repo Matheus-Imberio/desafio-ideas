@@ -24,6 +24,9 @@
     --input: 30 20% 96%;
     --ring: 24 95% 53%;
     --radius: 1rem;
+    /* Variáveis para gradientes dinâmicos */
+    --primary-gradient-from: 24 95% 53%;
+    --primary-gradient-to: 24 95% 60%;
   }
 
   .dark {
@@ -54,14 +57,24 @@
     @apply border-border/20;
   }
   body {
-    @apply text-foreground;
-    background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 25%, #ffd7a3 50%, #ffc085 75%, #ffa94d 100%);
+    @apply text-foreground bg-background;
     background-attachment: fixed;
     min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
   
-  /* Padrão de textura sutil */
-  body::before {
+  /* Background claro (padrão) */
+  body:not(.dark) {
+    background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 25%, #ffd7a3 50%, #ffc085 75%, #ffa94d 100%);
+  }
+  
+  /* Background escuro */
+  body.dark {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 25%, #1f1f1f 50%, #2a2a2a 75%, #1e1e1e 100%);
+  }
+  
+  /* Padrão de textura sutil - claro */
+  body:not(.dark)::before {
     content: '';
     position: fixed;
     top: 0;
@@ -76,6 +89,22 @@
     z-index: 0;
   }
   
+  /* Padrão de textura sutil - escuro */
+  body.dark::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(0, 0, 0, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(0, 0, 0, 0.2) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  
   body > * {
     position: relative;
     z-index: 1;
@@ -85,7 +114,17 @@
 @layer utilities {
   .card-restaurant {
     @apply rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-0;
+  }
+  
+  /* Card claro */
+  body:not(.dark) .card-restaurant {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 247, 237, 0.9) 100%);
+  }
+  
+  /* Card escuro */
+  body.dark .card-restaurant {
+    background: linear-gradient(135deg, rgba(30, 30, 30, 0.9) 0%, rgba(40, 40, 40, 0.9) 100%);
+    @apply border-border;
   }
   
   .card-restaurant:hover {
@@ -97,6 +136,31 @@
   }
   
   .btn-restaurant-primary {
-    @apply bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold;
+    @apply bg-gradient-to-r text-white font-semibold;
+    background: linear-gradient(to right, hsl(var(--primary-gradient-from)), hsl(var(--primary-gradient-to)));
+  }
+  
+  .btn-restaurant-primary:hover {
+    background: linear-gradient(to right, hsl(var(--primary-gradient-to)), hsl(var(--primary-gradient-from)));
+  }
+  
+  /* Classes dinâmicas para gradientes e cores de texto */
+  .gradient-primary {
+    background: linear-gradient(to right, hsl(var(--primary-gradient-from)), hsl(var(--primary-gradient-to)));
+  }
+  
+  .gradient-primary-text {
+    background: linear-gradient(to right, hsl(var(--primary-gradient-from)), hsl(var(--primary-gradient-to)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .text-primary-dynamic {
+    color: hsl(var(--primary));
+  }
+  
+  .bg-primary-icon {
+    background: linear-gradient(135deg, hsl(var(--primary-gradient-from)), hsl(var(--primary-gradient-to)));
   }
 }

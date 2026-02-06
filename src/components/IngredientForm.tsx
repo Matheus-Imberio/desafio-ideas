@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useToast } from '@/components/ui/use-toast'
+import { validateIngredientName, quickValidateIngredientName } from '@/lib/ingredient-validation'
 import type { Ingredient, IngredientFormData, IngredientUnit } from '@/lib/types'
 
 const ingredientSchema = z.object({
@@ -58,6 +60,10 @@ export function IngredientForm({
   ingredient,
   loading = false,
 }: IngredientFormProps) {
+  const { toast } = useToast()
+  const [validating, setValidating] = React.useState(false)
+  const [validationError, setValidationError] = React.useState<string | null>(null)
+  
   const {
     register,
     handleSubmit,
@@ -78,6 +84,7 @@ export function IngredientForm({
   })
 
   const unitValue = watch('unit')
+  const nameValue = watch('name')
 
   // Preenche formulário quando editar
   React.useEffect(() => {
@@ -104,13 +111,85 @@ export function IngredientForm({
     }
   }, [ingredient, open, reset])
 
+  // Valida nome quando muda (apenas para novos ingredientes)
+  React.useEffect(() => {
+    if (!ingredient && nameValue && nameValue.trim().length > 2) {
+      const timeoutId = setTimeout(async () => {
+        setValidating(true)
+        setValidationError(null)
+        
+        try {
+          // SEMPRE usa IA para validar (quando disponível)
+          const validation = await validateIngredientName(nameValue)
+          if (!validation.isValid) {
+            let errorMessage = validation.reason || 'Este não parece ser um ingrediente comestível'
+            if (validation.suggestion) {
+              errorMessage = `${validation.reason} (Sugestão: ${validation.suggestion})`
+            }
+            setValidationError(errorMessage)
+          } else {
+            setValidationError(null)
+            // Se houver sugestão de correção, mostra como aviso (não erro)
+            if (validation.suggestion && validation.suggestion.toLowerCase() !== nameValue.toLowerCase()) {
+              // Não bloqueia, mas pode mostrar sugestão opcionalmente
+            }
+          }
+        } catch (error) {
+          // Em caso de erro, não bloqueia (fail-safe)
+          console.error('Erro ao validar ingrediente:', error)
+          setValidationError(null)
+        } finally {
+          setValidating(false)
+        }
+      }, 1000) // Debounce de 1 segundo para dar tempo da IA processar
+
+      return () => clearTimeout(timeoutId)
+    } else {
+      setValidationError(null)
+    }
+  }, [nameValue, ingredient])
+
   const onFormSubmit = async (data: IngredientFormValues) => {
+    // Validação final antes de submeter (apenas para novos ingredientes)
+    if (!ingredient) {
+      setValidating(true)
+      try {
+        const quickCheck = quickValidateIngredientName(data.name)
+        if (!quickCheck.isValid) {
+          toast({
+            title: 'Ingrediente inválido',
+            description: quickCheck.reason || 'Este não parece ser um ingrediente comestível.',
+            variant: 'destructive',
+          })
+          setValidating(false)
+          return
+        }
+
+        const validation = await validateIngredientName(data.name)
+        if (!validation.isValid) {
+          toast({
+            title: 'Ingrediente inválido',
+            description: validation.reason || 'Este não parece ser um ingrediente comestível.',
+            variant: 'destructive',
+          })
+          setValidating(false)
+          return
+        }
+      } catch (error) {
+        // Em caso de erro, permite continuar (fail-safe)
+        console.error('Erro ao validar ingrediente:', error)
+      } finally {
+        setValidating(false)
+      }
+    }
+
     await onSubmit({
       ...data,
       expiry_date: data.expiry_date || null,
       category: data.category || null,
     })
     reset()
+    setValidationError(null)
     onOpenChange(false)
   }
 
@@ -135,8 +214,17 @@ export function IngredientForm({
               id="name"
               {...register('name')}
               placeholder="Ex: Tomate"
-              disabled={loading}
+              disabled={loading || validating}
+              className={validationError ? 'border-destructive' : ''}
             />
+            {validating && (
+              <p className="text-sm text-muted-foreground">
+                Verificando se é um ingrediente válido...
+              </p>
+            )}
+            {validationError && (
+              <p className="text-sm text-destructive">{validationError}</p>
+            )}
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name.message}</p>
             )}
@@ -224,12 +312,12 @@ export function IngredientForm({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={loading || validating}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : ingredient ? 'Atualizar' : 'Criar'}
+            <Button type="submit" disabled={loading || validating || (!!validationError && !ingredient)}>
+              {loading || validating ? 'Validando...' : ingredient ? 'Atualizar' : 'Criar'}
             </Button>
           </DialogFooter>
         </form>

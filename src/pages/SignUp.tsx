@@ -112,32 +112,36 @@ export default function SignUp() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-8 items-center">
         {/* Lado esquerdo - Branding */}
-        <div className="hidden md:flex flex-col items-start justify-center space-y-6 text-white">
+        <div className="hidden md:flex flex-col items-start justify-center space-y-8 px-8">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-white/20 backdrop-blur-sm shadow-xl">
-              <ChefHat className="h-12 w-12 text-white" />
+            <div className="p-4 rounded-2xl bg-white/30 backdrop-blur-md shadow-2xl border border-white/20">
+              <ChefHat className="h-12 w-12 text-white drop-shadow-lg" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold">Comece agora!</h1>
-              <p className="text-orange-100 text-lg mt-2">Crie sua conta e gerencie seu restaurante</p>
+              <h1 className="text-5xl font-bold text-white drop-shadow-lg leading-tight">
+                Comece agora!
+              </h1>
+              <p className="text-white/95 text-xl mt-3 font-medium drop-shadow-md">
+                Crie sua conta e gerencie seu restaurante
+              </p>
             </div>
           </div>
-          <div className="space-y-3 text-orange-50">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-white" />
-              <span>Cadastro rápido e simples</span>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <CheckCircle2 className="h-5 w-5 text-white drop-shadow-md flex-shrink-0" />
+              <span className="text-white font-medium text-lg drop-shadow-md">Cadastro rápido e simples</span>
             </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-white" />
-              <span>Gestão completa de estoque</span>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <CheckCircle2 className="h-5 w-5 text-white drop-shadow-md flex-shrink-0" />
+              <span className="text-white font-medium text-lg drop-shadow-md">Gestão completa de estoque</span>
             </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-white" />
-              <span>Receitas inteligentes com IA</span>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <CheckCircle2 className="h-5 w-5 text-white drop-shadow-md flex-shrink-0" />
+              <span className="text-white font-medium text-lg drop-shadow-md">Receitas inteligentes com IA</span>
             </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-white" />
-              <span>Alertas automáticos</span>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <CheckCircle2 className="h-5 w-5 text-white drop-shadow-md flex-shrink-0" />
+              <span className="text-white font-medium text-lg drop-shadow-md">Alertas automáticos</span>
             </div>
           </div>
         </div>

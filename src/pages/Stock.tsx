@@ -1,6 +1,20 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Filter, Bell, LogOut, User, ChefHat } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  Filter,
+  Bell,
+  LogOut,
+  User,
+  ChefHat,
+  ShoppingBag,
+  TrendingUp,
+  ShoppingCart,
+  Building2,
+  Settings,
+  DollarSign,
+} from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
@@ -388,52 +402,113 @@ export default function Stock() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
-                <ChefHat className="h-8 w-8 text-white" />
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              {/* Logo e Informações */}
+              <div className="flex items-center gap-4 flex-1">
+                <div className="p-3 rounded-2xl bg-primary-icon shadow-lg shrink-0">
+                  <ChefHat className="h-8 w-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h1 className="text-3xl sm:text-4xl font-bold gradient-primary-text whitespace-nowrap">
+                    Controle de Estoque
+                  </h1>
+                  <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
+                    <span className="font-semibold text-orange-700 dark:text-orange-400">{restaurant?.name}</span>
+                    <span className="hidden sm:inline text-muted-foreground">•</span>
+                    <span className="text-xs sm:text-sm break-all sm:break-normal">{user?.email}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                  Controle de Estoque
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                  <span className="font-medium text-orange-700">{restaurant?.name}</span>
-                  <span>•</span>
-                  <span>{user?.email}</span>
-                </p>
+
+              {/* Navegação */}
+              <div className="w-full lg:w-auto">
+                <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
+                  {/* Grupo Principal */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="relative rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={handleOpenAlerts}
+                  >
+                    <Bell className="mr-2 h-4 w-4" />
+                    Alertas
+                    {alertsCount > 0 && (
+                      <span className="ml-2 h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-[10px] text-white flex items-center justify-center font-bold shadow-md">
+                        {alertsCount > 9 ? '9+' : alertsCount}
+                      </span>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    <TrendingUp className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => navigate('/shopping-lists')}
+                  >
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Compras
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => navigate('/recipes')}
+                  >
+                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    Vendas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => navigate('/suppliers')}
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Fornecedores
+                  </Button>
+
+                  {/* Separador */}
+                  <div className="hidden lg:inline-block h-6 w-px bg-border mx-1" />
+
+                  {/* Grupo Secundário */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => navigate('/settings')}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurações
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                    onClick={() => navigate('/profile')}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    Perfil
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative rounded-xl hover:bg-orange-50"
-                onClick={handleOpenAlerts}
-              >
-                <Bell className="h-5 w-5" />
-                {alertsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-[10px] text-white flex items-center justify-center font-bold shadow-md">
-                    {alertsCount > 9 ? '9+' : alertsCount}
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl hover:bg-orange-50"
-                onClick={() => navigate('/profile')}
-              >
-                <User className="mr-2 h-4 w-4" />
-                Perfil
-              </Button>
-              <Button 
-                variant="outline" 
-                className="rounded-xl hover:bg-red-50 hover:border-red-200"
-                onClick={handleLogout}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
-              </Button>
             </div>
           </div>
 
@@ -441,7 +516,7 @@ export default function Stock() {
           <Card className="mb-6">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-orange-600" />
+                <Filter className="h-5 w-5 text-primary-dynamic" />
                 Filtros
               </CardTitle>
             </CardHeader>

@@ -49,28 +49,32 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-8 items-center">
         {/* Lado esquerdo - Branding */}
-        <div className="hidden md:flex flex-col items-start justify-center space-y-6 text-white">
+        <div className="hidden md:flex flex-col items-start justify-center space-y-8 px-8">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-white/20 backdrop-blur-sm shadow-xl">
-              <ChefHat className="h-12 w-12 text-white" />
+            <div className="p-4 rounded-2xl bg-white/30 backdrop-blur-md shadow-2xl border border-white/20">
+              <ChefHat className="h-12 w-12 text-white drop-shadow-lg" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold">Bem-vindo de volta!</h1>
-              <p className="text-orange-100 text-lg mt-2">Gerencie seu estoque com facilidade</p>
+              <h1 className="text-5xl font-bold text-white drop-shadow-lg leading-tight">
+                Bem-vindo de volta!
+              </h1>
+              <p className="text-white/95 text-xl mt-3 font-medium drop-shadow-md">
+                Gerencie seu estoque com facilidade
+              </p>
             </div>
           </div>
-          <div className="space-y-3 text-orange-50">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-white"></div>
-              <span>Controle total do estoque</span>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <div className="w-3 h-3 rounded-full bg-white shadow-md"></div>
+              <span className="text-white font-medium text-lg drop-shadow-md">Controle total do estoque</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-white"></div>
-              <span>Alertas automáticos de vencimento</span>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <div className="w-3 h-3 rounded-full bg-white shadow-md"></div>
+              <span className="text-white font-medium text-lg drop-shadow-md">Alertas automáticos de vencimento</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-white"></div>
-              <span>Receitas inteligentes com IA</span>
+            <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/30">
+              <div className="w-3 h-3 rounded-full bg-white shadow-md"></div>
+              <span className="text-white font-medium text-lg drop-shadow-md">Receitas inteligentes com IA</span>
             </div>
           </div>
         </div>

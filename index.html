@@ -8,6 +8,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Aplica tema do localStorage antes do React renderizar (evita flash)
+      (function() {
+        try {
+          // Tenta buscar preferências do localStorage (será sobrescrito quando o React carregar)
+          const savedTheme = localStorage.getItem('theme-preference');
+          if (savedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.body.classList.add('dark');
+          }
+        } catch (e) {
+          // Ignora erros
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

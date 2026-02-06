@@ -1,519 +1,568 @@
-import type { Ingredient } from './types'
-import { getAIRecipeSuggestions } from './ai'
+import { supabase } from './supabase'
+import type { Recipe, RecipeIngredient, RecipeSale, Ingredient } from './types'
 
-export type RecipeTag = 'expiring_soon' | 'high_stock' | 'ok'
+/**
+ * Busca todas as receitas de um restaurante
+ */
+export async function getRecipes(restaurantId: string): Promise<Recipe[]> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('name', { ascending: true })
 
-export interface Recipe {
-  id: string
-  name: string
-  description: string
-  ingredients: string[]
-  instructions: string[]
-  cookingTime: number // em minutos
-  servings: number
-  priority: 'high' | 'medium' | 'low' // Alta prioridade = ingredientes vencendo
-  matchedIngredients: string[] // Ingredientes que o usuário tem
-  missingIngredients: string[] // Ingredientes que faltam
-  reason?: string // Razão da sugestão (quando vem da IA)
-  isAI?: boolean // Indica se veio da IA
-  tags: RecipeTag[] // Tags indicando por que a receita foi sugerida
+  if (error) {
+    throw new Error(`Erro ao buscar receitas: ${error.message}`)
+  }
+
+  return data || []
 }
 
 /**
- * Base de dados de receitas comuns
+ * Busca uma receita por ID com seus ingredientes
  */
-const RECIPES_DATABASE: Omit<Recipe, 'priority' | 'matchedIngredients' | 'missingIngredients' | 'tags'>[] = [
-  {
-    id: '1',
-    name: 'Molho de Tomate',
-    description: 'Molho caseiro perfeito para massas e pratos diversos',
-    ingredients: ['tomate', 'cebola', 'alho', 'azeite', 'sal', 'pimenta'],
-    instructions: [
-      'Corte os tomates em cubos pequenos',
-      'Refogue a cebola e o alho no azeite até dourar',
-      'Adicione os tomates e deixe cozinhar por 20 minutos',
-      'Tempere com sal e pimenta a gosto',
-      'Bata no liquidificador se desejar textura mais lisa'
-    ],
-    cookingTime: 30,
-    servings: 4
-  },
-  {
-    id: '2',
-    name: 'Salada de Tomate e Cebola',
-    description: 'Salada fresca e rápida',
-    ingredients: ['tomate', 'cebola', 'azeite', 'vinagre', 'sal'],
-    instructions: [
-      'Corte os tomates em rodelas',
-      'Corte a cebola em rodelas finas',
-      'Tempere com azeite, vinagre e sal',
-      'Sirva imediatamente'
-    ],
-    cookingTime: 10,
-    servings: 2
-  },
-  {
-    id: '3',
-    name: 'Arroz com Frango',
-    description: 'Prato completo e saboroso',
-    ingredients: ['arroz', 'frango', 'cebola', 'alho', 'sal', 'pimenta'],
-    instructions: [
-      'Tempere o frango com sal e pimenta',
-      'Refogue a cebola e o alho',
-      'Adicione o frango e deixe dourar',
-      'Adicione o arroz e água',
-      'Cozinhe até o arroz ficar macio'
-    ],
-    cookingTime: 45,
-    servings: 4
-  },
-  {
-    id: '4',
-    name: 'Sopa de Legumes',
-    description: 'Sopa nutritiva e reconfortante',
-    ingredients: ['tomate', 'cebola', 'batata', 'cenoura', 'sal', 'pimenta'],
-    instructions: [
-      'Corte todos os legumes em cubos',
-      'Refogue a cebola até ficar transparente',
-      'Adicione os legumes e cubra com água',
-      'Cozinhe até os legumes ficarem macios',
-      'Tempere com sal e pimenta'
-    ],
-    cookingTime: 40,
-    servings: 6
-  },
-  {
-    id: '5',
-    name: 'Omelete',
-    description: 'Prato rápido e versátil',
-    ingredients: ['ovo', 'tomate', 'cebola', 'sal', 'pimenta'],
-    instructions: [
-      'Bata os ovos com sal e pimenta',
-      'Corte o tomate e a cebola em cubos pequenos',
-      'Aqueça uma frigideira com azeite',
-      'Adicione os ovos batidos',
-      'Quando começar a firmar, adicione os legumes',
-      'Dobre ao meio e sirva'
-    ],
-    cookingTime: 10,
-    servings: 2
-  },
-  {
-    id: '6',
-    name: 'Frango Grelhado',
-    description: 'Prato simples e saudável',
-    ingredients: ['frango', 'sal', 'pimenta', 'alho', 'azeite'],
-    instructions: [
-      'Tempere o frango com sal, pimenta e alho',
-      'Deixe marinar por 30 minutos',
-      'Grelhe em fogo médio até dourar',
-      'Sirva com acompanhamentos'
-    ],
-    cookingTime: 30,
-    servings: 4
-  },
-  {
-    id: '7',
-    name: 'Risotto de Legumes',
-    description: 'Risotto cremoso com legumes',
-    ingredients: ['arroz', 'cebola', 'alho', 'tomate', 'queijo', 'manteiga'],
-    instructions: [
-      'Refogue a cebola e o alho',
-      'Adicione o arroz e mexa até ficar translúcido',
-      'Adicione o caldo quente aos poucos',
-      'Quando quase pronto, adicione os legumes',
-      'Finalize com queijo e manteiga'
-    ],
-    cookingTime: 35,
-    servings: 4
-  },
-  {
-    id: '8',
-    name: 'Salada Completa',
-    description: 'Salada nutritiva com vários ingredientes',
-    ingredients: ['alface', 'tomate', 'cebola', 'azeite', 'vinagre', 'sal'],
-    instructions: [
-      'Lave e corte todos os vegetais',
-      'Misture em uma saladeira',
-      'Tempere com azeite, vinagre e sal',
-      'Sirva fresco'
-    ],
-    cookingTime: 15,
-    servings: 4
-  }
-]
+export async function getRecipeById(id: string): Promise<(Recipe & { ingredients: RecipeIngredient[] }) | null> {
+  const { data: recipe, error: recipeError } = await supabase
+    .from('recipes')
+    .select('*')
+    .eq('id', id)
+    .single()
 
-/**
- * Normaliza nome de ingrediente para comparação
- */
-function normalizeIngredientName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-    .trim()
+  if (recipeError) {
+    if (recipeError.code === 'PGRST116') {
+      return null
+    }
+    throw new Error(`Erro ao buscar receita: ${recipeError.message}`)
+  }
+
+  const { data: ingredients, error: ingredientsError } = await supabase
+    .from('recipe_ingredients')
+    .select('*')
+    .eq('recipe_id', id)
+    .order('ingredient_name', { ascending: true })
+
+  if (ingredientsError) {
+    throw new Error(`Erro ao buscar ingredientes da receita: ${ingredientsError.message}`)
+  }
+
+  return {
+    ...recipe,
+    ingredients: ingredients || [],
+  }
 }
 
 /**
- * Verifica se um ingrediente está disponível
+ * Cria uma nova receita
  */
-function isIngredientAvailable(
-  recipeIngredient: string,
-  availableIngredients: Ingredient[]
-): { available: boolean; ingredient?: Ingredient } {
-  const normalized = normalizeIngredientName(recipeIngredient)
-  
-  for (const ing of availableIngredients) {
-    const ingName = normalizeIngredientName(ing.name)
-    // Verifica se o nome do ingrediente contém ou é contido no nome da receita
-    if (ingName.includes(normalized) || normalized.includes(ingName)) {
-      return { available: true, ingredient: ing }
-    }
+export async function createRecipe(
+  restaurantId: string,
+  data: {
+    name: string
+    description?: string
+    servings?: number
+    preparation_time?: number
+    cost_per_serving?: number
+    ingredients: Array<{
+      ingredient_id?: string
+      ingredient_name: string
+      quantity: number
+      unit: RecipeIngredient['unit']
+    }>
   }
+): Promise<Recipe & { ingredients: RecipeIngredient[] }> {
+  console.log('Criando receita:', { restaurantId, data })
   
-  return { available: false }
-}
+  // Validação básica
+  if (!data.name || data.name.trim() === '') {
+    throw new Error('O nome da receita é obrigatório')
+  }
 
-/**
- * Verifica se um ingrediente está vencido
- */
-function isIngredientExpired(ingredient: Ingredient): boolean {
-  if (!ingredient.expiry_date) return false
-  
-  // Cria data de hoje no fuso horário local (meia-noite)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  today.setHours(0, 0, 0, 0)
-  
-  const parts = ingredient.expiry_date.split('-')
-  if (parts.length !== 3) return false
-  
-  const expiryDate = new Date(
-    parseInt(parts[0]), 
-    parseInt(parts[1]) - 1, 
-    parseInt(parts[2])
-  )
-  expiryDate.setHours(0, 0, 0, 0)
-  
-  // Compara apenas as datas (sem hora)
-  // Só retorna true se a data de vencimento é ANTERIOR a hoje
-  // Se hoje é 5 de fev e vence em 6 de fev, retorna false (não está vencido)
-  const daysDiff = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  
-  return daysDiff < 0
-}
+  if (!data.ingredients || data.ingredients.length === 0) {
+    throw new Error('A receita deve ter pelo menos um ingrediente')
+  }
 
-/**
- * Calcula prioridade da receita baseado em:
- * - Ingredientes próximos do vencimento (prioridade alta)
- * - Ingredientes com bastante estoque (prioridade média)
- */
-function calculatePriority(
-  matchedIngredients: Ingredient[],
-  expiringThreshold: number = 3
-): 'high' | 'medium' | 'low' {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  
-  let expiringCount = 0
-  let highStockCount = 0
-  
-  for (const ing of matchedIngredients) {
-    // Verifica ingredientes próximos do vencimento (mas não vencidos)
-    if (ing.expiry_date) {
-      const parts = ing.expiry_date.split('-')
-      const expiryDate = parts.length === 3
-        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-        : new Date(ing.expiry_date)
-      expiryDate.setHours(0, 0, 0, 0)
-      
-      const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-      
-      // Não conta vencidos (eles devem ser descartados)
-      if (daysUntilExpiry >= 0 && daysUntilExpiry <= expiringThreshold) {
-        expiringCount++
-      }
-    }
-    
-    // Verifica ingredientes com bastante estoque (mais que 2x o mínimo)
-    // Prioriza usar ingredientes que estão acima do estoque mínimo
-    if (ing.quantity > ing.min_stock * 2) {
-      highStockCount++
-    }
-  }
-  
-  // Alta prioridade: tem ingredientes próximos do vencimento
-  // Quanto mais ingredientes vencendo, maior a prioridade
-  if (expiringCount >= 2) return 'high'
-  if (expiringCount === 1) return 'high'
-  
-  // Média prioridade: tem bastante estoque para usar (evita desperdício)
-  // Prioriza receitas que usam ingredientes com estoque alto
-  if (highStockCount >= 2) return 'medium'
-  if (highStockCount === 1 && matchedIngredients.length >= 3) return 'medium'
-  
-  return 'low'
-}
-
-/**
- * Identifica as tags de uma receita baseado nos ingredientes correspondentes
- */
-function getRecipeTags(
-  matchedIngredients: Ingredient[],
-  expiringIngredients: Ingredient[],
-  highStockIngredients: Ingredient[]
-): RecipeTag[] {
-  const tags: RecipeTag[] = []
-  
-  // Verifica se usa ingredientes quase vencendo
-  const hasExpiring = matchedIngredients.some(ing => 
-    expiringIngredients.some(expIng => expIng.id === ing.id)
-  )
-  
-  // Verifica se usa ingredientes com alto estoque
-  const hasHighStock = matchedIngredients.some(ing => 
-    highStockIngredients.some(highIng => highIng.id === ing.id)
-  )
-  
-  // Se não tem nenhum dos dois, é receita "ok" (ingredientes normais)
-  const isOk = !hasExpiring && !hasHighStock
-  
-  if (hasExpiring) {
-    tags.push('expiring_soon')
-  }
-  
-  if (hasHighStock) {
-    tags.push('high_stock')
-  }
-  
-  if (isOk) {
-    tags.push('ok')
-  }
-  
-  return tags
-}
-
-/**
- * Busca receitas baseadas nos ingredientes disponíveis
- * NÃO inclui receitas que usam ingredientes vencidos
- * Tenta usar IA se disponível, senão usa receitas estáticas
- */
-export async function getRecipeSuggestions(
-  ingredients: Ingredient[],
-  maxResults: number = 5
-): Promise<Recipe[]> {
-  const suggestions: Recipe[] = []
-  
-  // Filtra ingredientes vencidos (não devem ser usados)
-  const validIngredients = ingredients.filter(ing => !isIngredientExpired(ing))
-  
-  // Identifica ingredientes por categoria para tags
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  today.setHours(0, 0, 0, 0)
-  
-  const expiringIngredients = ingredients.filter(ing => {
-    if (!ing.expiry_date || isIngredientExpired(ing)) return false
-    const parts = ing.expiry_date.split('-')
-    if (parts.length !== 3) return false
-    const expiryDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-    expiryDate.setHours(0, 0, 0, 0)
-    const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    return daysUntilExpiry >= 0 && daysUntilExpiry <= 3
-  })
-  
-  const highStockIngredients = ingredients.filter(ing => 
-    !isIngredientExpired(ing) && ing.quantity > ing.min_stock * 2
-  )
-  
-  for (const recipe of RECIPES_DATABASE) {
-    const matchedIngredients: Ingredient[] = []
-    const matchedNames: string[] = []
-    const missingIngredients: string[] = []
-    let hasExpiredIngredient = false
-    
-    // Verifica quais ingredientes da receita estão disponíveis
-    for (const recipeIngredient of recipe.ingredients) {
-      const result = isIngredientAvailable(recipeIngredient, validIngredients)
-      if (result.available && result.ingredient) {
-        matchedIngredients.push(result.ingredient)
-        matchedNames.push(recipeIngredient)
-      } else {
-        // Verifica se falta porque está vencido
-        const expiredResult = isIngredientAvailable(recipeIngredient, ingredients)
-        if (expiredResult.available && expiredResult.ingredient && isIngredientExpired(expiredResult.ingredient)) {
-          hasExpiredIngredient = true
-          break // Não sugere receitas com ingredientes vencidos
-        }
-        missingIngredients.push(recipeIngredient)
-      }
-    }
-    
-    // Não sugere receitas que precisam de ingredientes vencidos
-    if (hasExpiredIngredient) {
-      continue
-    }
-    
-    // Só sugere receitas onde tem pelo menos 50% dos ingredientes
-    const matchRatio = matchedIngredients.length / recipe.ingredients.length
-    if (matchRatio >= 0.5) {
-      const priority = calculatePriority(matchedIngredients)
-      const tags = getRecipeTags(matchedIngredients, expiringIngredients, highStockIngredients)
-      
-      suggestions.push({
-        ...recipe,
-        priority,
-        matchedIngredients: matchedNames,
-        missingIngredients,
-        tags,
-        // Guarda os ingredientes correspondentes para ordenação
-        _matchedIngredientObjects: matchedIngredients
-      } as Recipe & { _matchedIngredientObjects?: Ingredient[] })
-    }
-  }
-  
-  // Ordena por prioridade (high > medium > low), depois por quantidade de ingredientes correspondentes
-  // e finalmente por quantidade de estoque disponível
-  suggestions.sort((a, b) => {
-    const priorityOrder = { high: 3, medium: 2, low: 1 }
-    if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-      return priorityOrder[b.priority] - priorityOrder[a.priority]
-    }
-    
-    // Se mesma prioridade, ordena por quantidade de ingredientes correspondentes
-    if (b.matchedIngredients.length !== a.matchedIngredients.length) {
-      return b.matchedIngredients.length - a.matchedIngredients.length
-    }
-    
-    // Se mesma quantidade, prioriza receitas com mais ingredientes de alto estoque
-    const getStockScore = (recipe: Recipe & { _matchedIngredientObjects?: Ingredient[] }) => {
-      if (!recipe._matchedIngredientObjects) return 0
-      let score = 0
-      for (const ing of recipe._matchedIngredientObjects) {
-        // Dá mais pontos para ingredientes com estoque alto (acima do mínimo)
-        if (ing.min_stock > 0) {
-          const stockRatio = ing.quantity / ing.min_stock
-          score += stockRatio
-        } else {
-          // Se não tem estoque mínimo definido, usa a quantidade absoluta
-          score += ing.quantity
-        }
-      }
-      return score
-    }
-    
-    return getStockScore(b) - getStockScore(a)
-  })
-  
-  // Remove propriedade temporária antes de retornar
-  const staticRecipes = suggestions.map(({ _matchedIngredientObjects, ...recipe }) => recipe).slice(0, maxResults)
-  
-  // Tenta buscar receitas da IA
-  try {
-    
-    const aiRecipes = await getAIRecipeSuggestions(ingredients, expiringIngredients, highStockIngredients)
-    
-    if (aiRecipes.length > 0) {
-      // Converte receitas da IA para o formato Recipe
-      const aiRecipesFormatted: Recipe[] = aiRecipes.map((aiRecipe, index) => {
-        // Tenta fazer match dos ingredientes
-        const matchedNames: string[] = []
-        const missingIngredients: string[] = []
-        
-        const matchedIngredientObjects: Ingredient[] = []
-        
-        for (const recipeIng of aiRecipe.ingredients) {
-          const normalized = normalizeIngredientName(recipeIng)
-          const found = ingredients.find(ing => {
-            const ingName = normalizeIngredientName(ing.name)
-            return normalized.includes(ingName) || ingName.includes(normalized)
-          })
-          
-          if (found && !isIngredientExpired(found)) {
-            matchedNames.push(recipeIng)
-            matchedIngredientObjects.push(found)
-          } else {
-            missingIngredients.push(recipeIng)
-          }
-        }
-        
-        const tags = getRecipeTags(matchedIngredientObjects, expiringIngredients, highStockIngredients)
-        
-        return {
-          id: `ai-${index}`,
-          name: aiRecipe.name,
-          description: aiRecipe.description,
-          ingredients: aiRecipe.ingredients,
-          instructions: aiRecipe.instructions,
-          cookingTime: aiRecipe.cookingTime,
-          servings: aiRecipe.servings,
-          priority: expiringIngredients.length > 0 ? 'high' : highStockIngredients.length > 0 ? 'medium' : 'low',
-          matchedIngredients: matchedNames,
-          missingIngredients,
-          reason: aiRecipe.reason,
-          isAI: true,
-          tags
-        }
-      })
-      
-      // Combina receitas da IA (prioridade) com receitas estáticas
-      return [...aiRecipesFormatted, ...staticRecipes].slice(0, maxResults)
-    }
-  } catch (error) {
-    console.error('Erro ao buscar receitas da IA, usando receitas estáticas:', error)
-  }
-  
-  return staticRecipes
-}
-
-/**
- * Busca receitas que usam ingredientes específicos próximos do vencimento
- * NÃO inclui ingredientes vencidos
- */
-export async function getRecipesForExpiringIngredients(
-  ingredients: Ingredient[],
-  maxResults: number = 3
-): Promise<Recipe[]> {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  
-  // Filtra ingredientes vencendo em até 3 dias (mas não vencidos)
-  const expiringIngredients = ingredients.filter(ing => {
-    if (!ing.expiry_date) return false
-    
-    const parts = ing.expiry_date.split('-')
-    const expiryDate = parts.length === 3
-      ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-      : new Date(ing.expiry_date)
-    expiryDate.setHours(0, 0, 0, 0)
-    
-    const daysUntilExpiry = Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    // Apenas ingredientes que ainda não venceram e estão próximos do vencimento
-    return daysUntilExpiry >= 0 && daysUntilExpiry <= 3
-  })
-  
-  if (expiringIngredients.length === 0) {
-    return []
-  }
-  
-  // Busca receitas que usam esses ingredientes
-  const suggestions = await getRecipeSuggestions(ingredients, maxResults * 2)
-  
-  // Filtra apenas receitas que realmente usam ingredientes vencendo
-  return suggestions.filter(recipe => {
-    return recipe.matchedIngredients.some(recipeIng => {
-      return expiringIngredients.some(expIng => {
-        const normalizedRecipe = normalizeIngredientName(recipeIng)
-        const normalizedExp = normalizeIngredientName(expIng.name)
-        return normalizedRecipe.includes(normalizedExp) || normalizedExp.includes(normalizedRecipe)
-      })
+  // Cria a receita
+  const { data: recipe, error: recipeError } = await supabase
+    .from('recipes')
+    .insert({
+      restaurant_id: restaurantId,
+      name: data.name.trim(),
+      description: data.description || null,
+      servings: data.servings || 1,
+      preparation_time: data.preparation_time || null,
+      cost_per_serving: data.cost_per_serving || null,
     })
-  }).slice(0, maxResults)
+    .select()
+    .single()
+
+  if (recipeError) {
+    console.error('Erro ao criar receita:', recipeError)
+    
+    // Trata erro de receita duplicada
+    if (recipeError.code === '23505') {
+      throw new Error(`Já existe uma receita com o nome "${data.name}" cadastrada.`)
+    }
+    
+    throw new Error(`Erro ao criar receita: ${recipeError.message} (código: ${recipeError.code})`)
+  }
+
+  if (!recipe) {
+    throw new Error('Receita criada mas não retornada pelo banco de dados')
+  }
+
+  console.log('Receita criada:', recipe)
+
+  // Adiciona os ingredientes
+  if (data.ingredients.length > 0) {
+    const ingredientsToInsert = data.ingredients.map(ing => ({
+      recipe_id: recipe.id,
+      ingredient_id: ing.ingredient_id || null,
+      ingredient_name: ing.ingredient_name.trim(),
+      quantity: ing.quantity,
+      unit: ing.unit,
+    }))
+
+    console.log('Inserindo ingredientes:', ingredientsToInsert)
+
+    const { error: ingredientsError } = await supabase
+      .from('recipe_ingredients')
+      .insert(ingredientsToInsert)
+
+    if (ingredientsError) {
+      console.error('Erro ao inserir ingredientes:', ingredientsError)
+      // Se der erro ao inserir ingredientes, tenta deletar a receita criada
+      await supabase.from('recipes').delete().eq('id', recipe.id)
+      throw new Error(`Erro ao adicionar ingredientes: ${ingredientsError.message} (código: ${ingredientsError.code})`)
+    }
+  }
+
+  // Busca a receita completa
+  const fullRecipe = await getRecipeById(recipe.id)
+  if (!fullRecipe) {
+    throw new Error('Erro ao buscar receita criada')
+  }
+
+  console.log('Receita completa retornada:', fullRecipe)
+  return fullRecipe
+}
+
+/**
+ * Atualiza uma receita
+ */
+export async function updateRecipe(
+  id: string,
+  data: {
+    name?: string
+    description?: string
+    servings?: number
+    preparation_time?: number
+    cost_per_serving?: number
+    ingredients?: Array<{
+      ingredient_id?: string
+      ingredient_name: string
+      quantity: number
+      unit: RecipeIngredient['unit']
+    }>
+  }
+): Promise<Recipe & { ingredients: RecipeIngredient[] }> {
+  // Atualiza a receita
+  const updateData: any = {}
+  if (data.name !== undefined) updateData.name = data.name
+  if (data.description !== undefined) updateData.description = data.description
+  if (data.servings !== undefined) updateData.servings = data.servings
+  if (data.preparation_time !== undefined) updateData.preparation_time = data.preparation_time
+  if (data.cost_per_serving !== undefined) updateData.cost_per_serving = data.cost_per_serving
+
+  if (Object.keys(updateData).length > 0) {
+    const { error: recipeError } = await supabase
+      .from('recipes')
+      .update(updateData)
+      .eq('id', id)
+
+    if (recipeError) {
+      throw new Error(`Erro ao atualizar receita: ${recipeError.message}`)
+    }
+  }
+
+  // Se forneceu novos ingredientes, substitui todos
+  if (data.ingredients !== undefined) {
+    // Remove ingredientes antigos
+    const { error: deleteError } = await supabase
+      .from('recipe_ingredients')
+      .delete()
+      .eq('recipe_id', id)
+
+    if (deleteError) {
+      throw new Error(`Erro ao remover ingredientes antigos: ${deleteError.message}`)
+    }
+
+    // Adiciona novos ingredientes
+    if (data.ingredients.length > 0) {
+      const { error: insertError } = await supabase.from('recipe_ingredients').insert(
+        data.ingredients.map(ing => ({
+          recipe_id: id,
+          ingredient_id: ing.ingredient_id || null,
+          ingredient_name: ing.ingredient_name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+        }))
+      )
+
+      if (insertError) {
+        throw new Error(`Erro ao adicionar ingredientes: ${insertError.message}`)
+      }
+    }
+  }
+
+  // Busca a receita atualizada
+  const updatedRecipe = await getRecipeById(id)
+  if (!updatedRecipe) {
+    throw new Error('Erro ao buscar receita atualizada')
+  }
+
+  return updatedRecipe
+}
+
+/**
+ * Deleta uma receita
+ */
+export async function deleteRecipe(id: string): Promise<void> {
+  const { error } = await supabase.from('recipes').delete().eq('id', id)
+
+  if (error) {
+    throw new Error(`Erro ao deletar receita: ${error.message}`)
+  }
+}
+
+/**
+ * Registra venda de um prato (baixa automática de estoque)
+ */
+export async function sellRecipe(
+  recipeId: string,
+  restaurantId: string,
+  quantity: number = 1,
+  price?: number,
+  userId?: string
+): Promise<RecipeSale> {
+  // Obtém o user_id atual se não foi fornecido
+  let currentUserId = userId
+  if (!currentUserId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      throw new Error('Usuário não autenticado')
+    }
+    currentUserId = user.id
+  }
+
+  const insertData: any = {
+    recipe_id: recipeId,
+    restaurant_id: restaurantId,
+    quantity,
+    user_id: currentUserId,
+  }
+
+  // Adiciona preço se fornecido
+  if (price !== undefined && price !== null) {
+    insertData.price = price
+  }
+
+  const { data: sale, error } = await supabase
+    .from('recipe_sales')
+    .insert(insertData)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Erro ao registrar venda: ${error.message}`)
+  }
+
+  // Registra transação financeira de receita (sempre que houver preço)
+  if (price !== undefined && price !== null && price > 0 && currentUserId) {
+    try {
+      const { createFinancialTransaction } = await import('./financial')
+      const recipe = await getRecipeById(recipeId)
+      const totalAmount = price * quantity
+      await createFinancialTransaction(restaurantId, {
+        type: 'revenue',
+        description: `Venda: ${recipe?.name || 'Receita'} (x${quantity})`,
+        amount: totalAmount,
+        category: 'recipe_sale',
+        reference_id: sale.id,
+        userId: currentUserId,
+        transaction_date: sale.sold_at,
+      })
+    } catch (error) {
+      console.error('Erro ao registrar transação financeira:', error)
+      // Não bloqueia a venda se houver erro ao registrar transação
+    }
+  }
+
+  return sale
+}
+
+/**
+ * Calcula o custo de uma receita baseado nos preços dos fornecedores
+ */
+export async function calculateRecipeCost(
+  recipeId: string,
+  restaurantId: string
+): Promise<number | null> {
+  const recipe = await getRecipeById(recipeId)
+  if (!recipe) return null
+
+  let totalCost = 0
+  let hasPrice = false
+
+  for (const recipeIng of recipe.ingredients) {
+    // Tenta encontrar o ingrediente cadastrado
+    let ingredient: Ingredient | null = null
+    if (recipeIng.ingredient_id) {
+      const { data } = await supabase
+        .from('ingredients')
+        .select('*')
+        .eq('id', recipeIng.ingredient_id)
+        .single()
+      ingredient = data
+    } else {
+      // Busca por nome
+      const { data } = await supabase
+        .from('ingredients')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .ilike('name', recipeIng.ingredient_name)
+        .limit(1)
+        .single()
+      ingredient = data || null
+    }
+
+    // Busca preço do fornecedor
+    if (ingredient) {
+      const { data: supplierProduct } = await supabase
+        .from('supplier_products')
+        .select('price')
+        .ilike('ingredient_name', ingredient.name)
+        .not('price', 'is', null)
+        .limit(1)
+        .single()
+
+      if (supplierProduct?.price) {
+        totalCost += supplierProduct.price * recipeIng.quantity
+        hasPrice = true
+      }
+    }
+  }
+
+  return hasPrice ? totalCost : null
+}
+
+/**
+ * Busca receitas que podem ser feitas com ingredientes disponíveis
+ */
+export async function getAvailableRecipes(
+  restaurantId: string,
+  ingredients: Ingredient[]
+): Promise<Array<Recipe & { ingredients: RecipeIngredient[]; canMake: boolean; missingIngredients: string[] }>> {
+  const recipes = await getRecipes(restaurantId)
+  const availableRecipes: Array<Recipe & { ingredients: RecipeIngredient[]; canMake: boolean; missingIngredients: string[] }> = []
+
+  for (const recipe of recipes) {
+    const fullRecipe = await getRecipeById(recipe.id)
+    if (!fullRecipe) continue
+
+    const missingIngredients: string[] = []
+    let canMake = true
+
+    for (const recipeIng of fullRecipe.ingredients) {
+      // Tenta encontrar o ingrediente
+      let found = false
+      if (recipeIng.ingredient_id) {
+        found = ingredients.some(ing => ing.id === recipeIng.ingredient_id)
+      } else {
+        const normalizedName = recipeIng.ingredient_name.toLowerCase().trim()
+        found = ingredients.some(ing => {
+          const ingName = ing.name.toLowerCase().trim()
+          return ingName.includes(normalizedName) || normalizedName.includes(ingName)
+        })
+      }
+
+      if (!found) {
+        canMake = false
+        missingIngredients.push(recipeIng.ingredient_name)
+      }
+    }
+
+    availableRecipes.push({
+      ...fullRecipe,
+      canMake,
+      missingIngredients,
+    })
+  }
+
+  return availableRecipes
 }
 
 /**
  * Retorna lista de ingredientes vencidos que devem ser descartados
  */
 export function getExpiredIngredients(ingredients: Ingredient[]): Ingredient[] {
-  return ingredients.filter(ing => isIngredientExpired(ing))
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return ingredients.filter(ing => {
+    if (!ing.expiry_date) return false
+
+    const parts = ing.expiry_date.split('-')
+    if (parts.length !== 3) return false
+
+    const expiryDate = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2])
+    )
+    expiryDate.setHours(0, 0, 0, 0)
+
+    return expiryDate < today
+  })
 }
+
+/**
+ * Tipo para receitas de sugestão (diferente das receitas cadastradas)
+ * Exportado como Recipe para compatibilidade com RecipeSuggestionsDialog
+ */
+export type RecipeTag = 'expiring_soon' | 'high_stock' | 'ok'
+
+export interface RecipeSuggestion {
+  id: string
+  name: string
+  description: string
+  ingredients: string[]
+  instructions: string[]
+  cookingTime: number
+  servings: number
+  priority: 'high' | 'medium' | 'low'
+  matchedIngredients: string[]
+  missingIngredients: string[]
+  reason?: string
+  isAI?: boolean
+  tags: RecipeTag[]
+}
+
+/**
+ * Busca sugestões de receitas baseadas nos ingredientes disponíveis
+ * Usa receitas estáticas e pode usar IA se configurada
+ */
+export async function getRecipeSuggestions(
+  ingredients: Ingredient[],
+  maxResults: number = 5
+): Promise<RecipeSuggestion[]> {
+  // Importa função de IA dinamicamente para evitar erros se não estiver configurada
+  try {
+    const { getAIRecipeSuggestions } = await import('./ai')
+    const { quickValidateIngredientName } = await import('./ingredient-validation')
+    
+    // Filtra ingredientes vencidos E ingredientes inválidos (não comestíveis)
+    const validIngredients = ingredients.filter(ing => {
+      // Verifica se não está vencido
+      if (ing.expiry_date) {
+        const parts = ing.expiry_date.split('-')
+        if (parts.length === 3) {
+          const expiryDate = new Date(
+            parseInt(parts[0]),
+            parseInt(parts[1]) - 1,
+            parseInt(parts[2])
+          )
+          expiryDate.setHours(0, 0, 0, 0)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          if (expiryDate < today) {
+            return false // Vencido
+          }
+        }
+      }
+      
+      // Verifica se é um ingrediente válido (comestível)
+      const validation = quickValidateIngredientName(ing.name)
+      return validation.isValid
+    })
+
+    // Identifica ingredientes vencendo e com alto estoque
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const expiringIngredients = validIngredients.filter(ing => {
+      if (!ing.expiry_date) return false
+      const parts = ing.expiry_date.split('-')
+      if (parts.length !== 3) return false
+      const expiryDate = new Date(
+        parseInt(parts[0]),
+        parseInt(parts[1]) - 1,
+        parseInt(parts[2])
+      )
+      expiryDate.setHours(0, 0, 0, 0)
+      const daysDiff = Math.floor(
+        (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      )
+      return daysDiff >= 0 && daysDiff <= 3
+    })
+
+    const highStockIngredients = validIngredients.filter(
+      ing => ing.quantity > ing.min_stock * 2
+    )
+
+    // Tenta buscar receitas da IA
+    const aiRecipes = await getAIRecipeSuggestions(
+      validIngredients,
+      expiringIngredients,
+      highStockIngredients
+    )
+
+    // Converte receitas da IA para o formato RecipeSuggestion
+    const aiSuggestions: RecipeSuggestion[] = aiRecipes.map((aiRecipe, index) => {
+      const matchedNames: string[] = []
+      const missingIngredients: string[] = []
+
+      for (const recipeIng of aiRecipe.ingredients) {
+        const normalized = recipeIng.toLowerCase().trim()
+        const found = validIngredients.some(ing => {
+          const ingName = ing.name.toLowerCase().trim()
+          return normalized.includes(ingName) || ingName.includes(normalized)
+        })
+
+        if (found) {
+          matchedNames.push(recipeIng)
+        } else {
+          missingIngredients.push(recipeIng)
+        }
+      }
+
+      const tags: RecipeTag[] = []
+      if (expiringIngredients.length > 0) tags.push('expiring_soon')
+      if (highStockIngredients.length > 0) tags.push('high_stock')
+      if (tags.length === 0) tags.push('ok')
+
+      return {
+        id: `ai-${index}`,
+        name: aiRecipe.name,
+        description: aiRecipe.description,
+        ingredients: aiRecipe.ingredients,
+        instructions: aiRecipe.instructions,
+        cookingTime: aiRecipe.cookingTime,
+        servings: aiRecipe.servings,
+        priority: expiringIngredients.length > 0 ? 'high' : 'medium',
+        matchedIngredients: matchedNames,
+        missingIngredients,
+        reason: aiRecipe.reason,
+        isAI: true,
+        tags,
+      }
+    })
+
+    return aiSuggestions.slice(0, maxResults)
+  } catch (error) {
+    console.error('Erro ao buscar sugestões de receitas:', error)
+    // Retorna array vazio em caso de erro
+    return []
+  }
+}
+
+// Exporta RecipeSuggestion para uso em sugestões
+export type { RecipeSuggestion }
