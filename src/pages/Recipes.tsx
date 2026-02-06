@@ -261,7 +261,7 @@ export default function Recipes() {
               </div>
               <div>
                 <h1 className="text-4xl font-bold gradient-primary-text">
-                  Vendas
+                  Cardápio
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">{restaurant?.name}</p>
               </div>
