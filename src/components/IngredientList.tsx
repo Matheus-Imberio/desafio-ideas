@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { Ingredient } from '@/lib/types'
 import { getIngredientStatus, getIngredientStatuses } from '@/lib/ingredients'
-import { translateUnit, formatDatePT } from '@/lib/utils'
+import { translateUnit, formatDatePT, formatQuantity } from '@/lib/utils'
 
 interface IngredientListProps {
   ingredients: Ingredient[]
@@ -121,7 +121,7 @@ export function IngredientList({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Quantidade</span>
                 <span className="text-lg font-semibold">
-                  {ingredient.quantity.toFixed(2)} {translateUnit(ingredient.unit)}
+                  {formatQuantity(ingredient.quantity, ingredient.unit)} {translateUnit(ingredient.unit)}
                 </span>
               </div>
 

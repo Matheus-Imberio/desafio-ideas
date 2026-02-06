@@ -12,7 +12,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import type { StockMovement, Ingredient } from '@/lib/types'
 import { getIngredientMovements } from '@/lib/ingredients'
-import { translateUnit, formatDateTimePT } from '@/lib/utils'
+import { translateUnit, formatDateTimePT, formatQuantity } from '@/lib/utils'
 
 interface StockMovementsDialogProps {
   open: boolean
@@ -110,7 +110,7 @@ export function StockMovementsDialog({
                           <div>
                             <span className="text-muted-foreground">Anterior:</span>
                             <p className="font-medium">
-                              {movement.previous_quantity.toFixed(2)} {translateUnit(ingredient.unit)}
+                              {formatQuantity(movement.previous_quantity, ingredient.unit)} {translateUnit(ingredient.unit)}
                             </p>
                           </div>
                           <div>
@@ -122,7 +122,7 @@ export function StockMovementsDialog({
                           <div>
                             <span className="text-muted-foreground">Nova:</span>
                             <p className="font-medium">
-                              {movement.new_quantity.toFixed(2)} {translateUnit(ingredient.unit)}
+                              {formatQuantity(movement.new_quantity, ingredient.unit)} {translateUnit(ingredient.unit)}
                             </p>
                           </div>
                         </div>

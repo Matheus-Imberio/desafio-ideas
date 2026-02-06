@@ -20,7 +20,34 @@ export function translateUnit(unit: string): string {
 }
 
 /**
- * Formata data em português (dd de MMM)
+ * Formata quantidade mostrando decimais apenas quando necessário
+ * Para unidades (units): mostra inteiro
+ * Para kg, liters, g, ml: mostra decimais quando houver (remove zeros à direita)
+ */
+export function formatQuantity(quantity: number, unit: string): string {
+  // Unidades que devem ser inteiras
+  const integerUnits = ['units', 'unidades']
+  
+  // Se for unidade inteira, retorna sem decimais
+  if (integerUnits.includes(unit.toLowerCase())) {
+    return Math.round(quantity).toString()
+  }
+  
+  // Para outras unidades (kg, liters, g, ml), mostra decimais apenas se houver
+  // Remove zeros à direita e ponto final se não houver decimais significativos
+  const numStr = quantity.toString()
+  
+  // Se não tem ponto decimal, retorna como está
+  if (!numStr.includes('.')) {
+    return numStr
+  }
+  
+  // Remove zeros à direita e ponto se não sobrar nada
+  return numStr.replace(/\.?0+$/, '')
+}
+
+/**
+ * Formata data em português (dd de MMM de yyyy)
  * Corrige problema de fuso horário ao criar data a partir de string YYYY-MM-DD
  */
 export function formatDatePT(date: Date | string): string {
@@ -53,7 +80,8 @@ export function formatDatePT(date: Date | string): string {
   ]
   const day = d.getDate()
   const month = months[d.getMonth()]
-  return `${day} de ${month}`
+  const year = d.getFullYear()
+  return `${day} de ${month} de ${year}`
 }
 
 /**
