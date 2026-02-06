@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Palette, Moon, Sun, Monitor } from 'lucide-react'
+import { ArrowLeft, Palette, Moon, Sun } from 'lucide-react'
 
 import { useAuth } from '@/components/AuthProvider'
 import { useTheme } from '@/components/ThemeProvider'
@@ -31,7 +31,7 @@ export default function Settings() {
   const { preferences, updatePreferences, loading } = useTheme()
   const { toast } = useToast()
 
-  const handleThemeChange = async (theme: 'light' | 'dark' | 'auto') => {
+  const handleThemeChange = async (theme: 'light' | 'dark') => {
     try {
       // Aplica tema imediatamente antes de salvar
       const { applyTheme } = await import('@/lib/preferences')
@@ -122,7 +122,7 @@ export default function Settings() {
                 <Moon className="h-5 w-5 text-orange-600" />
                 Tema
               </CardTitle>
-              <CardDescription>Escolha entre tema claro, escuro ou automático</CardDescription>
+              <CardDescription>Escolha entre tema claro ou escuro</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-2">
@@ -130,8 +130,8 @@ export default function Settings() {
                   Modo de Tema
                 </Label>
                 <Select
-                  value={preferences?.theme || 'light'}
-                  onValueChange={(value: 'light' | 'dark' | 'auto') => handleThemeChange(value)}
+                  value={preferences?.theme === 'auto' ? 'light' : (preferences?.theme || 'light')}
+                  onValueChange={(value: 'light' | 'dark') => handleThemeChange(value)}
                 >
                   <SelectTrigger id="theme" className="h-12">
                     <SelectValue />
@@ -147,12 +147,6 @@ export default function Settings() {
                       <div className="flex items-center gap-2">
                         <Moon className="h-4 w-4" />
                         Escuro
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="auto">
-                      <div className="flex items-center gap-2">
-                        <Monitor className="h-4 w-4" />
-                        Automático
                       </div>
                     </SelectItem>
                   </SelectContent>

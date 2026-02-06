@@ -73,7 +73,7 @@ export default function Recipes() {
     async function loadData() {
       try {
         setLoading(true)
-        const restaurantData = await getOrCreateRestaurant(user.id)
+        const restaurantData = await getOrCreateRestaurant(user!.id)
         setRestaurant(restaurantData)
 
         const recipesData = await getRecipes(restaurantData.id)
